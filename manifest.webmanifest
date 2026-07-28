@@ -1,0 +1,10 @@
+{
+  "name": "Foundation Inspector Pro Fixed",
+  "short_name": "Foundation Pro",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef2f6",
+  "theme_color": "#083a73",
+  "description": "Foundation and caisson inspection field app with backup, restore, GPS, photos, and PDF reports"
+}
