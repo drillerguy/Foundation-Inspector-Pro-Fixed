@@ -28,6 +28,7 @@
 - Creates full backups containing records, photos, imported NCR rows, manual NCR overrides, and attached NCR PDFs.
 - Stores photos and NCR PDFs in IndexedDB while retaining the existing record and compatibility keys.
 - Generates a separate printable report page with notes, photos, saved coordinates, pickup/unload GPS details, and NCR details for **Print / Save as PDF**.
+- Provides smooth map-only pinch zoom with one-finger panning and accessible zoom-out, reset, and zoom-in controls.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
