@@ -29,6 +29,7 @@
 - Stores photos and NCR PDFs in IndexedDB while retaining the existing record and compatibility keys.
 - Generates a separate printable report page with notes, photos, saved coordinates, pickup/unload GPS details, and NCR details for **Print / Save as PDF**.
 - Adds a daily field dashboard with pickup, unload, active-caisson, and NCR totals; data-quality warnings; quick resume; and a combined daily shift report/PDF.
+- Adds a per-caisson quick inspection checklist for rebar, bottom cleanliness, water control, dimensions, concrete readiness, and overall Pass/Hold status; checklist results appear in reports.
 - Provides smooth map-only pinch zoom with one-finger panning and accessible zoom-out, reset, and zoom-in controls.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
