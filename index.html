@@ -243,7 +243,58 @@ function showTarget(){
  <label class="label">Field Notes</label>
  <textarea id="notes" class="field" rows="4">${esc(r.notes)}</textarea>
  <button id="saveNotes" class="action next" style="min-height:42px;font-size:15px;margin-top:7px">Save Notes</button>
- <div class="tiny" style="margin-top:8px">Pickup: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Unload: ${r…1259 tokens truncated…d GPS</th><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><th>Pickup</th><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}${r.pickupGPS?` · ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>Unload</th><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}${r.unloadGPS?` · ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>NCR status</th><td>${ncrStateLabel(n)}</td></tr></table><h3>Notes</h3><p class="notes">${esc(r.notes||'No field notes')}</p>${ncrs.length?`<h3>NCR Details</h3>${ncrs.map(({row,id})=>`<p><b>${esc(id)} — ${esc(statusText(row))}</b><br>${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'No description')}</p>`).join('')}`:''}<h3>Photos (${photos.length})</h3><div class="photos">${photoHtml.join('')}</div></section>`)
+ <div class="tiny" style="margin-top:8px">Pickup: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Unload: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
+ </div>
+ ${ncrSummaryHtml(n)}
+ <div class="card"><h2 style="font-size:17px">Photos</h2><div id="photoPreview" class="photo-grid"></div><div class="tiny" id="photoCount">Loading photos…</div></div>
+ ${toolCard()}`;
+ $('pickupBtn').onclick=()=>markPickup(n);
+ $('unloadBtn').onclick=()=>markUnload(n);
+ $('photoBtn').onclick=()=>{$('cameraInput').dataset.caisson=n;$('cameraInput').click()};
+ $('libraryBtn').onclick=()=>{$('libraryInput').dataset.caisson=n;$('libraryInput').click()};
+ $('nextBtn').onclick=chooseNext;
+ $('saveNotes').onclick=()=>{records[n]={...r,notes:$('notes').value,updated:new Date().toISOString()};persist();toast('Notes saved')};
+ bindTools();
+ showPhotoPreview(n)
+}
+function localDay(value){if(!value)return'';const d=new Date(value),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function todayKey(){return localDay(new Date())}
+function dailyRecords(){
+ const day=todayKey();
+ return Object.entries(records).map(([n,r])=>({n:+n,r:rec(n)})).filter(({r})=>localDay(r.pickupTime)===day||localDay(r.unloadTime)===day)
+}
+function activeRecords(){return Object.entries(records).map(([n])=>({n:+n,r:rec(n)})).filter(({r})=>r.pickupTime&&!r.unloadTime).sort((a,b)=>new Date(b.r.pickupTime)-new Date(a.r.pickupTime))}
+function dashboardWarnings(items){
+ const warnings=[];
+ for(const {n,r} of items){
+  const missing=[];if(num(r.lat)==null||num(r.lon)==null)missing.push('GPS');if(!String(r.notes||'').trim())missing.push('notes');if(!(r.photos||[]).length)missing.push('photos');
+  if(missing.length)warnings.push(`Caisson ${n}: missing ${missing.join(', ')}`)
+ }
+ return warnings
+}
+function openDashboard(){
+ const daily=dailyRecords(),active=activeRecords(),picked=daily.filter(({r})=>localDay(r.pickupTime)===todayKey()).length,unloaded=daily.filter(({r})=>localDay(r.unloadTime)===todayKey()).length;
+ const warnings=dashboardWarnings(daily),ncrCounts={open:0,pending:0,cleared:0};
+ for(const h of HOTSPOTS){const s=effectiveNcrState(h.caisson);if(ncrCounts[s]!=null)ncrCounts[s]++}
+ $('targetStatus').textContent='Daily Dashboard';
+ $('panel').innerHTML=`<div class="card"><h2>Today's Field Dashboard</h2><div class="tiny">${new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+ <div class="dashboard-grid"><div class="metric"><b>${picked}</b><span>Picked up today</span></div><div class="metric"><b>${unloaded}</b><span>Unloaded today</span></div><div class="metric"><b>${active.length}</b><span>Still active</span></div><div class="metric"><b>${daily.length}</b><span>Worked today</span></div><div class="metric"><b>${ncrCounts.open}</b><span>Open NCR</span></div><div class="metric"><b>${ncrCounts.pending}</b><span>Pending NCR</span></div></div>
+ <button id="dailyReportBtn" class="dashboard-action dashboard-print">MAKE DAILY SHIFT REPORT / PDF</button>
+ ${active.length?`<button id="resumeBtn" class="dashboard-action">RESUME CAISSON ${active[0].n}</button>`:'<div class="notice" style="margin-top:8px">No picked-up caissons are waiting to be unloaded.</div>'}
+ <button id="dashboardBack" class="dashboard-action dashboard-back">Back to Map</button></div>
+ <div class="card"><h2 style="font-size:17px">Data Check</h2>${warnings.length?`<ul class="warning-list">${warnings.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:"<div class=\"pill green\">Today's records have GPS, notes, and photos.</div>"}</div>
+ <div class="card"><h2 style="font-size:17px">Today's Caissons</h2>${daily.length?daily.sort((a,b)=>a.n-b.n).map(({n,r})=>`<button class="dashboard-action dashboard-back daily-caisson" data-n="${n}">Caisson ${n} — ${esc(r.status||'No information')}</button>`).join(''):'<div class="tiny">No caissons have been worked today.</div>'}</div>`;
+ $('dailyReportBtn').onclick=makeDailyReport;$('dashboardBack').onclick=showTarget;
+ if($('resumeBtn'))$('resumeBtn').onclick=()=>{selected=active[0].n;showTarget();scrollToSpot(selected)};
+ document.querySelectorAll('.daily-caisson').forEach(b=>b.onclick=()=>{selected=+b.dataset.n;showTarget();scrollToSpot(selected)})
+}
+async function makeDailyReport(){
+ const items=dailyRecords().sort((a,b)=>a.n-b.n);if(!items.length){toast('No work has been recorded today');return}
+ const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the daily report');return}w.document.write('<title>Preparing daily report…</title><p>Preparing daily report and photos…</p>');
+ const sections=[];
+ for(const {n,r} of items){
+  const photos=await getPhotos(n),ncrs=ncrsForCaisson(n),photoHtml=await Promise.all(photos.map(async p=>`<figure><img src="${await blobToDataURL(p.blob)}"><figcaption>${esc(p.name||'Photo')} — ${p.date?new Date(p.date).toLocaleString():''}</figcaption></figure>`));
+  sections.push(`<section><h2>Caisson ${n} — ${esc(r.status||'No information')}</h2><table><tr><th>Saved GPS</th><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><th>Pickup</th><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}${r.pickupGPS?` · ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>Unload</th><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}${r.unloadGPS?` · ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>NCR status</th><td>${ncrStateLabel(n)}</td></tr></table><h3>Notes</h3><p class="notes">${esc(r.notes||'No field notes')}</p>${ncrs.length?`<h3>NCR Details</h3>${ncrs.map(({row,id})=>`<p><b>${esc(id)} — ${esc(statusText(row))}</b><br>${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'No description')}</p>`).join('')}`:''}<h3>Photos (${photos.length})</h3><div class="photos">${photoHtml.join('')}</div></section>`)
  }
  const active=activeRecords(),html=`<!doctype html><html><head><meta charset="utf-8"><title>Foundation Inspector Daily Report ${todayKey()}</title><style>body{font:14px Arial;margin:28px;color:#111}button{font-size:18px;padding:12px 18px}section{break-before:page;border-top:3px solid #083a73;padding-top:10px}section:first-of-type{break-before:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:7px;text-align:left}.notes{white-space:pre-wrap}.photos{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0;break-inside:avoid}img{width:100%;max-height:500px;object-fit:contain}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Save / Share as PDF</button><h1>Foundation Inspector Daily Shift Report</h1><p>${new Date().toLocaleString()}</p><p><b>Caissons worked:</b> ${items.length} &nbsp; <b>Still active:</b> ${active.length}</p>${sections.join('')}</body></html>`;
  w.document.open();w.document.write(html);w.document.close()
