@@ -20,6 +20,7 @@
 .map-controls{position:sticky;left:10px;top:10px;z-index:25;width:max-content;display:flex;gap:5px;padding:5px;background:#fffffff0;border-radius:12px;box-shadow:0 2px 12px #0004;line-height:normal}
 .map-controls button{min-width:42px;min-height:42px;padding:7px 10px;background:#083a73;color:#fff;border-radius:9px;font-size:18px;touch-action:manipulation}
 .map-controls button.map-reset{font-size:12px;min-width:58px}
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}
 </style>
 </head>
 <body>
@@ -242,22 +243,14 @@ function showTarget(){
  <label class="label">Field Notes</label>
  <textarea id="notes" class="field" rows="4">${esc(r.notes)}</textarea>
  <button id="saveNotes" class="action next" style="min-height:42px;font-size:15px;margin-top:7px">Save Notes</button>
- <div class="tiny" style="margin-top:8px">Pickup: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Unload: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
- </div>
- ${ncrSummaryHtml(n)}
- <div class="card"><h2 style="font-size:17px">Photos</h2><div id="photoPreview" class="photo-grid"></div><div class="tiny" id="photoCount">Loading photos…</div></div>
- ${toolCard()}`;
- $('pickupBtn').onclick=()=>markPickup(n);
- $('unloadBtn').onclick=()=>markUnload(n);
- $('photoBtn').onclick=()=>{$('cameraInput').dataset.caisson=n;$('cameraInput').click()};
- $('libraryBtn').onclick=()=>{$('libraryInput').dataset.caisson=n;$('libraryInput').click()};
- $('nextBtn').onclick=chooseNext;
- $('saveNotes').onclick=()=>{records[n]={...r,notes:$('notes').value,updated:new Date().toISOString()};persist();toast('Notes saved')};
- bindTools();
- showPhotoPreview(n)
+ <div class="tiny" style="margin-top:8px">Pickup: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Unload: ${r…1259 tokens truncated…d GPS</th><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><th>Pickup</th><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}${r.pickupGPS?` · ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>Unload</th><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}${r.unloadGPS?` · ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>NCR status</th><td>${ncrStateLabel(n)}</td></tr></table><h3>Notes</h3><p class="notes">${esc(r.notes||'No field notes')}</p>${ncrs.length?`<h3>NCR Details</h3>${ncrs.map(({row,id})=>`<p><b>${esc(id)} — ${esc(statusText(row))}</b><br>${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'No description')}</p>`).join('')}`:''}<h3>Photos (${photos.length})</h3><div class="photos">${photoHtml.join('')}</div></section>`)
+ }
+ const active=activeRecords(),html=`<!doctype html><html><head><meta charset="utf-8"><title>Foundation Inspector Daily Report ${todayKey()}</title><style>body{font:14px Arial;margin:28px;color:#111}button{font-size:18px;padding:12px 18px}section{break-before:page;border-top:3px solid #083a73;padding-top:10px}section:first-of-type{break-before:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:7px;text-align:left}.notes{white-space:pre-wrap}.photos{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0;break-inside:avoid}img{width:100%;max-height:500px;object-fit:contain}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Save / Share as PDF</button><h1>Foundation Inspector Daily Shift Report</h1><p>${new Date().toLocaleString()}</p><p><b>Caissons worked:</b> ${items.length} &nbsp; <b>Still active:</b> ${active.length}</p>${sections.join('')}</body></html>`;
+ w.document.open();w.document.write(html);w.document.close()
 }
 function toolCard(){return`<div class="card"><div class="tools">
 <button id="shareLogBtn" class="share-log">MAKE / SHARE LOG WITH PHOTOS</button>
+<button id="dashboardBtn" class="share-log" style="background:#083a73!important">DAILY DASHBOARD / SHIFT REPORT</button>
 <button id="backupBtn">Backup Project</button>
 <button id="restoreBtn">Restore Project</button>
 <button id="centerBtn">Center on Me</button>
@@ -267,6 +260,7 @@ function toolCard(){return`<div class="card"><div class="tools">
 </div><div class="tiny" style="margin-top:7px">${ncrRows.length?`${ncrRows.length} NCR spreadsheet rows imported`:'No NCR spreadsheet imported'}</div></div>`}
 function bindTools(){
  if($('shareLogBtn'))$('shareLogBtn').onclick=makeShareLog;
+ if($('dashboardBtn'))$('dashboardBtn').onclick=openDashboard;
  if($('backupBtn'))$('backupBtn').onclick=backupProject;
  if($('restoreBtn'))$('restoreBtn').onclick=()=>$('restoreInput').click();
  if($('centerBtn'))$('centerBtn').onclick=()=>{autoCenter=true;centerOnGPS()};
