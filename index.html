@@ -18,7 +18,7 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v6</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
+<header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
 <div class="layout"><section class="map-shell" id="mapShell"><div class="map" id="map"><img src="https://drillerguy.github.io/-ORD-Caisson-Inspector/caisson-plan.png" alt="ORD caisson plan" crossorigin="anonymous"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
 <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
 <input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
@@ -27,6 +27,7 @@
 <input id="ncrPdfInput" class="hidden" type="file" accept="application/pdf,.pdf">
 <div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Picked &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Unloaded</div>
 <div id="toast" class="toast hidden"></div>
+<script src="caisson-data.js"></script>
 <script>
 const OLD_INDEX='https://drillerguy.github.io/-ORD-Caisson-Inspector/index.html',OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
 let HOTSPOTS=[],records={},ncrRows=[],selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null;
@@ -45,24 +46,10 @@ function persist(){localStorage.setItem(NEW_KEY,JSON.stringify(records));renderP
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.add('hidden'),2400)}
 async function loadHotspots(){
   $('panel').innerHTML='<div class="empty">Loading drawing and caisson locations…</div>';
-  const response=await fetch(OLD_INDEX,{cache:'no-store'});
-  if(!response.ok)throw Error(`Could not load caisson data (${response.status})`);
-  const text=await response.text();
-
-  function extractAssignedJson(name,nextName){
-    const marker=`const ${name}=`;
-    const start=text.indexOf(marker);
-    if(start<0)throw Error(`${name} data was not found`);
-    const jsonStart=text.indexOf(name==='HOTSPOTS'?'[':'{',start+marker.length);
-    const next=text.indexOf(`const ${nextName}=`,jsonStart);
-    if(jsonStart<0||next<0)throw Error(`${name} data was incomplete`);
-    const semicolon=text.lastIndexOf(';',next);
-    if(semicolon<jsonStart)throw Error(`${name} ending was not found`);
-    return JSON.parse(text.slice(jsonStart,semicolon).trim());
-  }
-
-  HOTSPOTS=extractAssignedJson('HOTSPOTS','STARTING');
-  const starting=extractAssignedJson('STARTING','records');
+  const data=window.FOUNDATION_CAISSON_DATA;
+  if(!data||!Array.isArray(data.HOTSPOTS)||!data.STARTING)throw Error('Local caisson data is missing');
+  HOTSPOTS=data.HOTSPOTS;
+  const starting=data.STARTING;
 
   if(!Array.isArray(HOTSPOTS)||HOTSPOTS.length<100){
     throw Error('The caisson location list did not load correctly');
@@ -263,7 +250,7 @@ function bindTools(){
  if($('ncrImportBtn'))$('ncrImportBtn').onclick=()=>$('ncrExcelInput').click();
  if($('ncrClearBtn'))$('ncrClearBtn').onclick=()=>{if(confirm('Remove the imported NCR spreadsheet? Caisson records and photos will not be deleted.')){ncrRows=[];localStorage.removeItem(NCR_KEY);renderPins();showTarget();toast('NCR data cleared')}}
 }
-function markPickup(n){const r=rec(n),g=gpsSnapshot();records[n]={...r,pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',updated:new Date().toISOString()};persist();toast(`Caisson ${n} picked up`);showTarget()}
+function markPickup(n){const r=rec(n),g=gpsSnapshot();records[n]={...r,pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',lat:g?.lat??r.lat,lon:g?.lon??r.lon,updated:new Date().toISOString()};persist();toast(`Caisson ${n} picked up`);showTarget()}
 function markUnload(n){const r=rec(n),g=gpsSnapshot();records[n]={...r,unloadTime:new Date().toISOString(),unloadGPS:g,status:'Unloaded',verified:!!g,lat:g?.lat??r.lat,lon:g?.lon??r.lon,updated:new Date().toISOString()};persist();toast(`Caisson ${n} unloaded`);selected=null;chooseNext()}
 function chooseNext(){if(!lastPosition){selected=null;showTarget();toast('Start GPS first');return}const b=nearestUnfinished(lastPosition.coords.latitude,lastPosition.coords.longitude);nearest=b?.n??null;selected=nearest;renderPins();showTarget();if(selected)scrollToSpot(selected)}
 function nearestUnfinished(lat,lon){let best=null;for(const h of HOTSPOTS){const r=rec(h.caisson);if(r.unloadTime||num(r.lat)==null||num(r.lon)==null)continue;const d=haversine(lat,lon,+r.lat,+r.lon);if(!best||d<best.d)best={n:h.caisson,d}}return best}
@@ -278,9 +265,25 @@ function updateGPS(p){if(lastPosition&&p.timestamp<lastPosition.timestamp)return
 function drawBlueDot(){const p=lastPosition,q=p&&project(p.coords.latitude,p.coords.longitude),layer=$('gpsLayer');if(!q){layer.innerHTML='';return}const m=$('map'),probe=project(p.coords.latitude,p.coords.longitude+.00001),meters=haversine(p.coords.latitude,p.coords.longitude,p.coords.latitude,p.coords.longitude+.00001),pct=Math.max(.00001,Math.abs(probe.x-q.x)),pxPerMeter=(m.offsetWidth*pct/100)/meters,r=Math.max(30,p.coords.accuracy*pxPerMeter*2);layer.innerHTML=`<div class="accuracy" style="left:${q.x}%;top:${q.y}%;width:${r}px;height:${r}px"></div><div class="blue-dot" style="left:${q.x}%;top:${q.y}%"></div>`}
 function centerOnGPS(){if(!lastPosition)return;const q=project(lastPosition.coords.latitude,lastPosition.coords.longitude);if(!q)return;const s=$('mapShell'),m=$('map');s.scrollTo({left:m.offsetWidth*q.x/100-s.clientWidth/2,top:m.offsetHeight*q.y/100-s.clientHeight/2,behavior:'smooth'})}
 function geoError(e){$('gpsStatus').textContent=e.code===1?'Location permission denied':'GPS signal lost';if(e.code===1)toast('Allow Precise Location for Safari in iPhone Settings')}
-function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',1);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',2);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'});if(!q.result.objectStoreNames.contains('ncrPdfs'))q.result.createObjectStore('ncrPdfs',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 $('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
-async function backupProject(){const photos=[];try{const db=await openDB(),tx=db.transaction('photos'),store=tx.objectStore('photos'),all=await new Promise((res,rej)=>{const q=store.getAll();q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});for(const p of all){const data=await blobToDataURL(p.blob);photos.push({...p,blob:undefined,data})}}catch{}const payload={app:'Foundation Inspector Pro',version:6,created:new Date().toISOString(),records,photos};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));a.download=`Foundation-Inspector-Backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Backup created')}
+async function allFromStore(db,name){return new Promise((res,rej)=>{const q=db.transaction(name).objectStore(name).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
+async function backupProject(){
+ const photos=[],ncrPdfs=[];
+ try{
+  const db=await openDB();
+  for(const p of await allFromStore(db,'photos'))photos.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
+  for(const p of await allFromStore(db,'ncrPdfs'))ncrPdfs.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
+ }catch(err){toast(`Backup warning: ${err.message}`)}
+ for(let i=0;i<localStorage.length;i++){
+  const key=localStorage.key(i);
+  if(!key?.startsWith('ncrpdfdata:'))continue;
+  const id=key.slice('ncrpdfdata:'.length);
+  if(!ncrPdfs.some(p=>p.id===id))ncrPdfs.push({id,name:`${id}.pdf`,type:'application/pdf',data:localStorage.getItem(key)});
+ }
+ const payload={app:'Foundation Inspector Pro',version:7,created:new Date().toISOString(),records,photos,ncrRows,ncrPdfs,localStorage:{foundationInspectorRecords:records,foundationInspectorNcrData:ncrRows}};
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));a.download=`Foundation-Inspector-Backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast(`Backup created: ${Object.keys(records).length} records, ${photos.length} photos, ${ncrPdfs.length} NCR PDFs`)
+}
 function blobToDataURL(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){const [h,b]=s.split(','),mime=(h.match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})}
 
@@ -324,17 +327,27 @@ function attachNcrPdf(id){pendingNcrPdfId=id;$('ncrPdfInput').click()}
 $('ncrPdfInput').onchange=async e=>{
  const file=e.target.files[0],id=pendingNcrPdfId;if(!file||!id)return;
  try{
-  const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.readAsDataURL(file)});
-  localStorage.setItem(`ncrpdfdata:${id}`,data);localStorage.setItem(`ncrpdf:${id}`,'yes');toast(`PDF attached to ${id}`);showTarget()
+  const db=await openDB(),tx=db.transaction('ncrPdfs','readwrite');
+  tx.objectStore('ncrPdfs').put({id,name:file.name,type:file.type||'application/pdf',blob:file,date:new Date().toISOString()});
+  await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  localStorage.setItem(`ncrpdf:${id}`,'yes');localStorage.removeItem(`ncrpdfdata:${id}`);toast(`PDF attached to ${id}`);showTarget()
  }catch(err){toast(`PDF attach failed: ${err.message}`)}
  e.target.value='';pendingNcrPdfId=null
 }
-function openNcrPdf(id){
- const data=localStorage.getItem(`ncrpdfdata:${id}`);if(!data){toast('No PDF attached');return}
- const w=window.open(data,'_blank');if(!w)toast('Allow pop-ups to open the NCR PDF')
+async function openNcrPdf(id){
+ let source=null;
+ try{
+  const db=await openDB(),item=await new Promise(resolve=>{const q=db.transaction('ncrPdfs').objectStore('ncrPdfs').get(id);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>resolve(null)});
+  if(item?.blob)source=URL.createObjectURL(item.blob)
+ }catch{}
+ source=source||localStorage.getItem(`ncrpdfdata:${id}`);
+ if(!source){toast('No PDF attached');return}
+ const w=window.open(source,'_blank');if(!w)toast('Allow pop-ups to open the NCR PDF');else if(source.startsWith('blob:'))setTimeout(()=>URL.revokeObjectURL(source),60000)
 }
 async function makeShareLog(){
  const n=targetNumber();if(!n){toast('Select a caisson first');return}
+ const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the report');return}
+ w.document.write('<!doctype html><title>Preparing field log…</title><p style="font:18px Arial;padding:24px">Preparing field log and photos…</p>');
  const r=rec(n),photos=await getPhotos(n),ncrs=ncrsForCaisson(n);
  const photoHtml=await Promise.all(photos.map(async p=>`<div class="photo"><img src="${await blobToDataURL(p.blob)}"><div>${esc(p.name||'Photo')} — ${p.date?new Date(p.date).toLocaleString():''}</div></div>`));
  const ncrHtml=ncrs.length?ncrs.map(({row,id})=>`<section class="ncr"><h3>${esc(id)} — ${esc(statusText(row))}</h3><p><b>Issue:</b> ${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed')}</p><p><b>Correction required:</b> ${esc(findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed')}</p><p><b>RFI:</b> ${esc(findField(row,['RFI Status','RFI','RFI Number'])||'Not listed')}</p><p><b>Ball in court:</b> ${esc(findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed')}</p></section>`).join(''):'<p>No imported NCR lists this caisson.</p>';
@@ -342,12 +355,26 @@ async function makeShareLog(){
  body{font:14px Arial,sans-serif;color:#111;margin:28px}h1{margin-bottom:4px}.meta{border-collapse:collapse;width:100%;margin:12px 0}.meta td{border:1px solid #aaa;padding:7px}.ncr{border:2px solid #d49300;padding:10px;margin:10px 0;break-inside:avoid}.photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}.photo{break-inside:avoid;border:1px solid #aaa;padding:6px}.photo img{width:100%;max-height:520px;object-fit:contain}@media print{button{display:none}.photos{display:block}.photo{margin:0 0 12px}}
  </style></head><body><button onclick="window.print()" style="font-size:18px;padding:12px 20px">Save / Share as PDF</button>
  <h1>Foundation Inspector — Caisson ${n}</h1><div>Created ${new Date().toLocaleString()}</div>
- <table class="meta"><tr><td><b>Status</b></td><td>${esc(r.status||'No information')}</td></tr><tr><td><b>GPS location</b></td><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><td><b>Pickup</b></td><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}</td></tr><tr><td><b>Unload</b></td><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}</td></tr></table>
+ <table class="meta"><tr><td><b>Status</b></td><td>${esc(r.status||'No information')}</td></tr><tr><td><b>Saved latitude / longitude</b></td><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><td><b>Pickup</b></td><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}</td></tr><tr><td><b>Pickup GPS</b></td><td>${r.pickupGPS?`${r.pickupGPS.lat}, ${r.pickupGPS.lon} · accuracy ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft · ${new Date(r.pickupGPS.time).toLocaleString()}`:'Not captured'}</td></tr><tr><td><b>Unload</b></td><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}</td></tr><tr><td><b>Unload GPS</b></td><td>${r.unloadGPS?`${r.unloadGPS.lat}, ${r.unloadGPS.lon} · accuracy ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft · ${new Date(r.unloadGPS.time).toLocaleString()}`:'Not captured'}</td></tr></table>
  <h2>Field Notes</h2><p style="white-space:pre-wrap">${esc(r.notes||'No field notes')}</p><h2>NCR Information</h2><p><b>Map NCR status:</b> ${esc(ncrStateLabel(n))}</p>${ncrHtml}<h2>Photos (${photos.length})</h2><div class="photos">${photoHtml.join('')}</div></body></html>`;
- const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the report');return}w.document.open();w.document.write(html);w.document.close()
+ w.document.open();w.document.write(html);w.document.close()
 }
 
-$('restoreInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text()),incoming=j.records||j.foundationInspectorRecords||j.localStorage?.foundationInspectorRecords;if(!incoming||typeof incoming!=='object')throw Error('No records found');records={...records,...incoming};if(Array.isArray(j.photos)&&j.photos.length){const db=await openDB(),tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos){if(p.id&&p.data)store.put({...p,blob:dataURLToBlob(p.data),data:undefined})}await new Promise(res=>tx.oncomplete=res)}persist();selected=null;nearest=null;showTarget();toast('Project restored')}catch(err){toast(`Restore failed: ${err.message}`)}e.target.value=''}
+$('restoreInput').onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{
+  const j=JSON.parse(await f.text()),incoming=j.records||j.foundationInspectorRecords||j.localStorage?.foundationInspectorRecords;
+  if(!incoming||typeof incoming!=='object')throw Error('No records found');
+  records={...records,...incoming};
+  const restoredNcr=j.ncrRows||j.foundationInspectorNcrData||j.localStorage?.foundationInspectorNcrData;
+  if(Array.isArray(restoredNcr)){ncrRows=restoredNcr;localStorage.setItem(NCR_KEY,JSON.stringify(ncrRows))}
+  const db=await openDB();
+  if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data)store.put({...p,blob:dataURLToBlob(p.data),data:undefined});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  if(Array.isArray(j.ncrPdfs)&&j.ncrPdfs.length){const tx=db.transaction('ncrPdfs','readwrite'),store=tx.objectStore('ncrPdfs');for(const p of j.ncrPdfs)if(p.id&&p.data){store.put({...p,blob:dataURLToBlob(p.data),data:undefined});localStorage.setItem(`ncrpdf:${p.id}`,'yes')};await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  persist();selected=null;nearest=null;showTarget();toast(`Project restored: ${Object.keys(incoming).length} records`)
+ }catch(err){toast(`Restore failed: ${err.message}`)}
+ e.target.value=''
+}
 $('find').onclick=()=>{const n=+$('search').value;if(HOTSPOTS.some(h=>h.caisson===n)){selected=n;showTarget();scrollToSpot(n)}else toast('Caisson not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;
 loadRecords();loadHotspots().catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Check the internet connection, then reload this page.</p></div>${toolCard()}`;bindTools();});bindTools();if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
 </script>
