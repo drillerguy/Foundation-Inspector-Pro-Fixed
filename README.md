@@ -12,6 +12,8 @@
 
 - `index.html` — complete inspection app
 - `caisson-data.js` — local numbered caisson locations and verified starting control points
+- `caisson-plan.png` — local caisson drawing
+- `xlsx.full.min.js` — pinned local Excel/NCR reader
 - `manifest.webmanifest` — home-screen/PWA information
 - `recovery.html` — emergency record backup and cache clearing
 - `README.md` — these instructions
@@ -35,7 +37,7 @@ After restoring an old backup, confirm the record count using **Count Records**,
 
 ## Map drawing
 
-The numbered hotspot locations and verified starting control points are stored locally in `caisson-data.js`, so changes to the older ORD app cannot break map loading. The plan image remains sourced from the existing public ORD drawing site.
+The drawing, numbered hotspot locations, verified starting control points, and Excel reader are stored in this repository. The field app no longer depends on the older ORD site or a CDN at runtime.
 
 ## Preserved browser data
 

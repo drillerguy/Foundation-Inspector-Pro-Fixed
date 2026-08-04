@@ -19,7 +19,7 @@
 </head>
 <body>
 <header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
-<div class="layout"><section class="map-shell" id="mapShell"><div class="map" id="map"><img src="https://drillerguy.github.io/-ORD-Caisson-Inspector/caisson-plan.png" alt="ORD caisson plan" crossorigin="anonymous"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
+<div class="layout"><section class="map-shell" id="mapShell"><div class="map" id="map"><img src="caisson-plan.png" alt="ORD caisson plan"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
 <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
 <input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
 <input id="restoreInput" class="hidden" type="file" accept="application/json,.json">
@@ -29,7 +29,7 @@
 <div id="toast" class="toast hidden"></div>
 <script src="caisson-data.js"></script>
 <script>
-const OLD_INDEX='https://drillerguy.github.io/-ORD-Caisson-Inspector/index.html',OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
+const OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
 let HOTSPOTS=[],records={},ncrRows=[],selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null;
 const $=id=>document.getElementById(id),num=v=>{const n=Number(v);return Number.isFinite(n)?n:null},esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
 function defaultRec(){return{status:'No information',verified:false,notes:'',lat:null,lon:null,condition:'',updated:'',photos:[],pickupTime:null,unloadTime:null,pickupGPS:null,unloadGPS:null}}
@@ -306,7 +306,7 @@ async function getPhotos(n){
 }
 function loadXlsxLibrary(){
  if(window.XLSX)return Promise.resolve(window.XLSX);
- return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=()=>resolve(window.XLSX);s.onerror=()=>reject(Error('Excel reader could not load. Connect to the internet and try again.'));document.head.appendChild(s)})
+ return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>resolve(window.XLSX);s.onerror=()=>reject(Error('The local Excel reader could not load. Reload the app and try again.'));document.head.appendChild(s)})
 }
 $('ncrExcelInput').onchange=async e=>{
  const file=e.target.files[0];if(!file)return;
