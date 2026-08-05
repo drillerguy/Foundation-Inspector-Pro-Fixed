@@ -26,13 +26,14 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
-<div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="mapCenter" class="map-center" aria-label="Center map">◎</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img src="caisson-plan.png" alt="ORD caisson plan"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div><div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Picked &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Unloaded</div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
+<header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span><span id="networkStatus" class="badge">Checking connection…</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
+<div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="mapCenter" class="map-center" aria-label="Center map">◎</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img id="planImage" src="caisson-plan.png" alt="Foundation caisson plan"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div><div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Picked &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Unloaded</div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
 <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
 <input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
 <input id="restoreInput" class="hidden" type="file" accept="application/json,.json">
 <input id="ncrExcelInput" class="hidden" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
 <input id="ncrPdfInput" class="hidden" type="file" accept="application/pdf,.pdf">
+<input id="drawingInput" class="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
 <div id="toast" class="toast hidden"></div>
 <script src="caisson-data.js"></script>
 <script>
@@ -319,6 +320,8 @@ function toolCard(){return`<div class="card"><div class="tools">
 <button id="restoreBtn">Restore Project</button>
 <button id="centerBtn">Center on Me</button>
 <button id="gpsBtn">Restart GPS</button>
+<button id="drawingBtn" class="ncr-import">Load New Drawing</button>
+<button id="drawingResetBtn">Restore Original Drawing</button>
 <button id="ncrImportBtn" class="ncr-import">Import NCR Excel File</button>
 <button id="ncrClearBtn">Clear NCR Data</button>
 </div><div class="tiny" style="margin-top:7px">${ncrRows.length?`${ncrRows.length} NCR spreadsheet rows imported`:'No NCR spreadsheet imported'}</div></div>`}
@@ -329,6 +332,8 @@ function bindTools(){
  if($('restoreBtn'))$('restoreBtn').onclick=()=>$('restoreInput').click();
  if($('centerBtn'))$('centerBtn').onclick=()=>{autoCenter=true;centerOnGPS()};
  if($('gpsBtn'))$('gpsBtn').onclick=startGPS;
+ if($('drawingBtn'))$('drawingBtn').onclick=()=>$('drawingInput').click();
+ if($('drawingResetBtn'))$('drawingResetBtn').onclick=restoreOriginalDrawing;
  if($('ncrImportBtn'))$('ncrImportBtn').onclick=()=>$('ncrExcelInput').click();
  if($('ncrClearBtn'))$('ncrClearBtn').onclick=()=>{if(confirm('Remove the imported NCR spreadsheet? Caisson records and photos will not be deleted.')){ncrRows=[];localStorage.removeItem(NCR_KEY);renderPins();showTarget();toast('NCR data cleared')}}
 }
@@ -347,15 +352,21 @@ function updateGPS(p){if(lastPosition&&p.timestamp<lastPosition.timestamp)return
 function drawBlueDot(){const p=lastPosition,q=p&&project(p.coords.latitude,p.coords.longitude),layer=$('gpsLayer');if(!q){layer.innerHTML='';return}const m=$('map'),probe=project(p.coords.latitude,p.coords.longitude+.00001),meters=haversine(p.coords.latitude,p.coords.longitude,p.coords.latitude,p.coords.longitude+.00001),pct=Math.max(.00001,Math.abs(probe.x-q.x)),pxPerMeter=(m.offsetWidth*pct/100)/meters,r=Math.max(30,p.coords.accuracy*pxPerMeter*2);layer.innerHTML=`<div class="accuracy" style="left:${q.x}%;top:${q.y}%;width:${r}px;height:${r}px"></div><div class="blue-dot" style="left:${q.x}%;top:${q.y}%"></div>`}
 function centerOnGPS(){if(!lastPosition)return;const q=project(lastPosition.coords.latitude,lastPosition.coords.longitude);if(!q)return;const s=$('mapShell'),m=$('map');s.scrollTo({left:m.offsetWidth*q.x/100-s.clientWidth/2,top:m.offsetHeight*q.y/100-s.clientHeight/2,behavior:'smooth'})}
 function geoError(e){$('gpsStatus').textContent=e.code===1?'Location permission denied':'GPS signal lost';if(e.code===1)toast('Allow Precise Location for Safari in iPhone Settings')}
-function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',2);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'});if(!q.result.objectStoreNames.contains('ncrPdfs'))q.result.createObjectStore('ncrPdfs',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',3);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'});if(!q.result.objectStoreNames.contains('ncrPdfs'))q.result.createObjectStore('ncrPdfs',{keyPath:'id'});if(!q.result.objectStoreNames.contains('settings'))q.result.createObjectStore('settings',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+async function drawingSetting(){try{const db=await openDB();return await new Promise(resolve=>{const q=db.transaction('settings').objectStore('settings').get('drawing');q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>resolve(null)})}catch{return null}}
+async function saveDrawing(file){const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'drawing',name:file.name,type:file.type,blob:file,date:new Date().toISOString()});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing();toast(`Drawing loaded: ${file.name}`)}
+async function applyStoredDrawing(){const item=await drawingSetting(),img=$('planImage');if(img._customUrl)URL.revokeObjectURL(img._customUrl);img._customUrl=null;if(item?.blob){img._customUrl=URL.createObjectURL(item.blob);img.src=img._customUrl;img.alt=item.name||'Custom foundation drawing'}else{img.src='caisson-plan.png';img.alt='Foundation caisson plan'}img.onload=()=>{drawBlueDot();if(targetNumber())scrollToSpot(targetNumber())}}
+async function restoreOriginalDrawing(){try{const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').delete('drawing');await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing();toast('Original drawing restored')}catch(err){toast(`Drawing reset failed: ${err.message}`)}}
+$('drawingInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(!file.type.startsWith('image/'))throw Error('Choose a PNG, JPG, WebP, or GIF image');await saveDrawing(file)}catch(err){toast(`Drawing load failed: ${err.message}`)}e.target.value=''};
 $('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
 async function allFromStore(db,name){return new Promise((res,rej)=>{const q=db.transaction(name).objectStore(name).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
 async function backupProject(){
- const photos=[],ncrPdfs=[];
+ const photos=[],ncrPdfs=[];let customDrawing=null;
  try{
   const db=await openDB();
   for(const p of await allFromStore(db,'photos'))photos.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
   for(const p of await allFromStore(db,'ncrPdfs'))ncrPdfs.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
+  const drawing=await drawingSetting();if(drawing?.blob)customDrawing={name:drawing.name,type:drawing.type,date:drawing.date,data:await blobToDataURL(drawing.blob)};
  }catch(err){toast(`Backup warning: ${err.message}`)}
  for(let i=0;i<localStorage.length;i++){
   const key=localStorage.key(i);
@@ -363,7 +374,7 @@ async function backupProject(){
   const id=key.slice('ncrpdfdata:'.length);
   if(!ncrPdfs.some(p=>p.id===id))ncrPdfs.push({id,name:`${id}.pdf`,type:'application/pdf',data:localStorage.getItem(key)});
  }
- const payload={app:'Foundation Inspector Pro',version:7,created:new Date().toISOString(),records,photos,ncrRows,ncrPdfs,localStorage:{foundationInspectorRecords:records,foundationInspectorNcrData:ncrRows}};
+ const payload={app:'Foundation Inspector Pro',version:7,created:new Date().toISOString(),records,photos,ncrRows,ncrPdfs,customDrawing,localStorage:{foundationInspectorRecords:records,foundationInspectorNcrData:ncrRows}};
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));a.download=`Foundation-Inspector-Backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast(`Backup created: ${Object.keys(records).length} records, ${photos.length} photos, ${ncrPdfs.length} NCR PDFs`)
 }
 function blobToDataURL(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
@@ -453,12 +464,15 @@ $('restoreInput').onchange=async e=>{
   const db=await openDB();
   if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data)store.put({...p,blob:dataURLToBlob(p.data),data:undefined});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
   if(Array.isArray(j.ncrPdfs)&&j.ncrPdfs.length){const tx=db.transaction('ncrPdfs','readwrite'),store=tx.objectStore('ncrPdfs');for(const p of j.ncrPdfs)if(p.id&&p.data){store.put({...p,blob:dataURLToBlob(p.data),data:undefined});localStorage.setItem(`ncrpdf:${p.id}`,'yes')};await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  if(j.customDrawing?.data){const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'drawing',name:j.customDrawing.name||'Restored drawing',type:j.customDrawing.type||'image/png',date:j.customDrawing.date||new Date().toISOString(),blob:dataURLToBlob(j.customDrawing.data)});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing()}
   persist();selected=null;nearest=null;showTarget();toast(`Project restored: ${Object.keys(incoming).length} records`)
  }catch(err){toast(`Restore failed: ${err.message}`)}
  e.target.value=''
 }
+function updateNetworkStatus(){const b=$('networkStatus');b.textContent=navigator.onLine?'Online · offline ready':'Offline · data saving';b.style.background=navigator.onLine?'#16803d':'#b42318'}
+async function enableOffline(){updateNetworkStatus();addEventListener('online',()=>{updateNetworkStatus();toast('Connection restored')});addEventListener('offline',()=>{updateNetworkStatus();toast('Offline mode — work will keep saving')});if(!('serviceWorker'in navigator))return;try{const reg=await navigator.serviceWorker.register('./service-worker.js');reg.update().catch(()=>{});reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(worker)worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)toast('App update ready — refresh when convenient')})})}catch(err){console.warn('Offline setup failed',err)}}
 $('find').onclick=()=>{const n=+$('search').value;if(HOTSPOTS.some(h=>h.caisson===n)){selected=n;showTarget();scrollToSpot(n)}else toast('Caisson not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;
-installMapZoom();loadRecords();loadHotspots().catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Check the internet connection, then reload this page.</p></div>${toolCard()}`;bindTools();});bindTools();if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
+installMapZoom();loadRecords();applyStoredDrawing();loadHotspots().catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Reload the page. If you opened the app before, offline mode will use the saved copy.</p></div>${toolCard()}`;bindTools();});bindTools();enableOffline();document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
 </script>
 </body>
 </html>
