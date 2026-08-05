@@ -452,5 +452,6 @@ $('restoreInput').onchange=async e=>{
 $('find').onclick=()=>{const n=+$('search').value;if(HOTSPOTS.some(h=>h.caisson===n)){selected=n;showTarget();scrollToSpot(n)}else toast('Caisson not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;
 installMapZoom();loadRecords();loadHotspots().catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Check the internet connection, then reload this page.</p></div>${toolCard()}`;bindTools();});bindTools();if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
 </script>
+<script src="daily-report-v10.js"></script>
 </body>
 </html>
