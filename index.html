@@ -17,15 +17,16 @@
 .ncr-import{background:#7b3fc6!important;color:#fff!important}.ncr-manual{margin-top:8px;padding-top:8px;border-top:1px dashed #caa43c}.empty{text-align:center;color:#6d7883;padding:25px 8px}.hidden{display:none!important}.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:100;background:#111;color:#fff;padding:11px 15px;border-radius:11px;font-weight:800;box-shadow:0 4px 20px #0007}.legend{position:fixed;left:9px;bottom:9px;z-index:20;background:#fffe;padding:7px 9px;border-radius:10px;font-size:11px;box-shadow:0 2px 10px #0003}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:3px}@media(max-width:760px){.top{position:relative}.layout{display:block;height:auto}.map-shell{height:57vh}.map{width:1500px}.panel{border-left:0;border-top:1px solid #ccd4dd;min-height:43vh;padding-bottom:calc(18px + env(safe-area-inset-bottom))}.legend{bottom:44vh}.action{min-height:62px}}
 </style>
 <style>
-.map-controls{position:sticky;left:10px;top:10px;z-index:25;width:max-content;display:flex;gap:5px;padding:5px;background:#fffffff0;border-radius:12px;box-shadow:0 2px 12px #0004;line-height:normal}
+.map-wrap{position:relative;min-width:0;min-height:0;overflow:hidden;background:#616b75}.map-shell{width:100%;height:100%;overscroll-behavior:contain;touch-action:pan-x pan-y}
+.map-controls{position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:25;width:max-content;display:flex;flex-direction:column;gap:6px;padding:6px;background:#fffffff2;border-radius:14px;box-shadow:0 2px 12px #0005;line-height:normal}
 .map-controls button{min-width:42px;min-height:42px;padding:7px 10px;background:#083a73;color:#fff;border-radius:9px;font-size:18px;touch-action:manipulation}
-.map-controls button.map-reset{font-size:12px;min-width:58px}
+.map-controls button.map-reset{font-size:11px;min-width:48px}.map-controls button.map-center{font-size:21px}@media(max-width:760px){.map-wrap{height:57vh}.map-shell{height:100%}.legend{max-width:calc(100% - 74px)}}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-grid label{font-size:12px;font-weight:800;color:#53606c}.check-grid select{margin-top:4px}@media(max-width:420px){.check-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
-<div class="layout"><section class="map-shell" id="mapShell"><div class="map-controls" aria-label="Map zoom controls"><button id="zoomOut" aria-label="Zoom out">−</button><button id="zoomReset" class="map-reset">Reset</button><button id="zoomIn" aria-label="Zoom in">+</button></div><div class="map" id="map"><img src="caisson-plan.png" alt="ORD caisson plan"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
+<div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="mapCenter" class="map-center" aria-label="Center map">◎</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img src="caisson-plan.png" alt="ORD caisson plan"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
 <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
 <input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
 <input id="restoreInput" class="hidden" type="file" accept="application/json,.json">
@@ -37,7 +38,7 @@
 <script>
 const OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
 let HOTSPOTS=[],records={},ncrRows=[],selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null;
-let mapBaseWidth=window.matchMedia('(max-width:760px)').matches?1500:1800,mapWidth=mapBaseWidth,pinchStart=null;
+let mapBaseWidth=window.matchMedia('(max-width:760px)').matches?1500:1800,mapWidth=mapBaseWidth,pinchStart=null,pinchFrame=null,pinchPending=null;
 const $=id=>document.getElementById(id),num=v=>{const n=Number(v);return Number.isFinite(n)?n:null},esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
 function defaultRec(){return{status:'No information',verified:false,notes:'',lat:null,lon:null,condition:'',updated:'',photos:[],pickupTime:null,unloadTime:null,pickupGPS:null,unloadGPS:null}}
 function rec(n){return{...defaultRec(),...(records[n]||{})}}
@@ -98,15 +99,22 @@ function setMapWidth(next,anchorX=$('mapShell').clientWidth/2,anchorY=$('mapShel
  shell.scrollLeft=contentX*ratio-anchorX;shell.scrollTop=contentY*ratio-anchorY;
  drawBlueDot()
 }
+function setMapWidthAt(next,mapX,mapY,anchorX,anchorY){
+ const shell=$('mapShell'),map=$('map');next=Math.max(700,Math.min(3600,Math.round(next)));
+ mapWidth=next;map.style.width=`${mapWidth}px`;
+ shell.scrollLeft=map.offsetWidth*mapX-anchorX;shell.scrollTop=map.offsetHeight*mapY-anchorY;
+ drawBlueDot()
+}
 function resetMapZoom(){setMapWidth(mapBaseWidth)}
 function touchDistance(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)}
 function touchCenter(t,shell){const r=shell.getBoundingClientRect();return{x:(t[0].clientX+t[1].clientX)/2-r.left,y:(t[0].clientY+t[1].clientY)/2-r.top}}
 function installMapZoom(){
  const shell=$('mapShell');$('map').style.width=`${mapWidth}px`;
  $('zoomOut').onclick=()=>setMapWidth(mapWidth/1.25);$('zoomIn').onclick=()=>setMapWidth(mapWidth*1.25);$('zoomReset').onclick=resetMapZoom;
- shell.addEventListener('touchstart',e=>{if(e.touches.length!==2)return;autoCenter=false;pinchStart={distance:touchDistance(e.touches),width:mapWidth,center:touchCenter(e.touches,shell)}},{passive:true});
- shell.addEventListener('touchmove',e=>{if(e.touches.length!==2||!pinchStart)return;e.preventDefault();const center=touchCenter(e.touches,shell);setMapWidth(pinchStart.width*touchDistance(e.touches)/pinchStart.distance,center.x,center.y)},{passive:false});
- shell.addEventListener('touchend',e=>{if(e.touches.length<2)pinchStart=null},{passive:true});
+ $('mapCenter').onclick=()=>{autoCenter=true;if(lastPosition&&transform)centerOnGPS();else if(targetNumber())scrollToSpot(targetNumber());else shell.scrollTo({left:0,top:0,behavior:'smooth'})};
+ shell.addEventListener('touchstart',e=>{if(e.touches.length!==2)return;autoCenter=false;const center=touchCenter(e.touches,shell),map=$('map');pinchStart={distance:touchDistance(e.touches),width:mapWidth,mapX:(shell.scrollLeft+center.x)/map.offsetWidth,mapY:(shell.scrollTop+center.y)/map.offsetHeight}},{passive:true});
+ shell.addEventListener('touchmove',e=>{if(e.touches.length!==2||!pinchStart)return;e.preventDefault();const center=touchCenter(e.touches,shell);pinchPending={width:pinchStart.width*touchDistance(e.touches)/pinchStart.distance,center};if(!pinchFrame)pinchFrame=requestAnimationFrame(()=>{const p=pinchPending;pinchFrame=null;if(p&&pinchStart)setMapWidthAt(p.width,pinchStart.mapX,pinchStart.mapY,p.center.x,p.center.y)})},{passive:false});
+ shell.addEventListener('touchend',e=>{if(e.touches.length<2){pinchStart=null;pinchPending=null;if(pinchFrame){cancelAnimationFrame(pinchFrame);pinchFrame=null}}},{passive:true});
 }
 function targetNumber(){return selected??nearest}
 function gpsSnapshot(){if(!lastPosition)return null;return{lat:lastPosition.coords.latitude,lon:lastPosition.coords.longitude,accuracy:lastPosition.coords.accuracy,time:new Date(lastPosition.timestamp||Date.now()).toISOString()}}
@@ -452,6 +460,5 @@ $('restoreInput').onchange=async e=>{
 $('find').onclick=()=>{const n=+$('search').value;if(HOTSPOTS.some(h=>h.caisson===n)){selected=n;showTarget();scrollToSpot(n)}else toast('Caisson not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;
 installMapZoom();loadRecords();loadHotspots().catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Check the internet connection, then reload this page.</p></div>${toolCard()}`;bindTools();});bindTools();if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
 </script>
-<script src="daily-report-v10.js"></script>
 </body>
 </html>
