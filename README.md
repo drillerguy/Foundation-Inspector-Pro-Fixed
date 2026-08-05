@@ -15,6 +15,7 @@
 - `caisson-plan.png` — local caisson drawing
 - `xlsx.full.min.js` — pinned local Excel/NCR reader
 - `manifest.webmanifest` — home-screen/PWA information
+- `service-worker.js` — offline app cache
 - `recovery.html` — emergency record backup and cache clearing
 - `README.md` — these instructions
 
@@ -31,6 +32,8 @@
 - Adds a daily field dashboard with pickup, unload, active-caisson, and NCR totals; data-quality warnings; quick resume; and a combined daily shift report/PDF.
 - Adds a per-caisson quick inspection checklist for rebar, bottom cleanliness, water control, dimensions, concrete readiness, and overall Pass/Hold status; checklist results appear in reports.
 - Provides smoother focal-point pinch zoom with one-finger panning and a stationary side rail for zoom, fit, and center controls.
+- Works offline after the first successful online load and shows the current connection state.
+- Loads a replacement PNG, JPG, WebP, or GIF drawing into local device storage, restores the original drawing on demand, and includes the custom drawing in project backups.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
