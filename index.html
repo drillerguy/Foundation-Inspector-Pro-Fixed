@@ -253,13 +253,14 @@ function showTarget(){
  $('panel').innerHTML=`<div class="card"><h2>Caisson ${n}</h2>
  <div class="statusrow"><span class="pill ${r.unloadTime?'green':''}">${stage}</span>${d!=null?`<span class="pill blue">${d} ft away</span>`:''}</div>
  <div class="big-actions">
-  <button id="pickupBtn" class="action pickup">PICK UP</button>
+  <button id="pickupBtn" class="action pickup" aria-label="Log caisson GPS and pick up">LOG CAISSON GPS / PICK UP</button>
   <button id="unloadBtn" class="action unload">UNLOAD</button>
   <button id="saveGpsBtn" class="action photo">SAVE BEST GPS</button>
   <button id="photoBtn" class="action photo">TAKE PHOTO</button>
   <button id="libraryBtn" class="action photo">ADD EXISTING PHOTOS</button>
   <button id="nextBtn" class="action next">NEXT CAISSON</button>
  </div>
+ <div class="tiny" style="margin-top:7px">Log Caisson GPS / Pick Up saves the best latitude/longitude reading and pickup time.</div>
  <label class="label">Field Notes</label>
  <textarea id="notes" class="field" rows="4">${esc(r.notes)}</textarea>
  <button id="saveNotes" class="action next" style="min-height:42px;font-size:15px;margin-top:7px">Save Notes</button>
