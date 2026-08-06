@@ -35,6 +35,7 @@
 - Works offline after the first successful online load and shows the current connection state.
 - Loads a replacement PNG, JPG, WebP, or GIF drawing into local device storage, restores the original drawing on demand, and includes the custom drawing in project backups.
 - Adds per-caisson correction history and safe undo for pickup, unload, notes, inspection, GPS clearing, and photo removal.
+- Adds Best GPS Lock with multi-reading selection, signal-quality grades, jump rejection, weak-signal warnings, and a dedicated Save Best GPS action.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
