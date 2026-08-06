@@ -28,11 +28,11 @@
 .toolbar{grid-template-columns:minmax(0,1fr) auto auto auto}.project-list{display:grid;gap:8px}.project-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid #d7dee7;border-radius:12px;padding:10px}.project-row button{padding:10px;background:#083a73;color:#fff}.module-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.module-grid button{padding:14px;background:#e7edf4;color:#16202a}.project-form{display:grid;gap:8px}@media(max-width:420px){.toolbar{grid-template-columns:minmax(0,1fr) auto auto}.toolbar #projectsBtn{grid-column:1/-1}.module-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.pin{width:32px;height:32px;line-height:27px;font-size:11px;border-width:3px;box-shadow:0 2px 7px #0009}.pin.nearest{width:46px;height:46px;line-height:40px;font-size:15px}.pin.selected{outline-width:5px}}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-grid label{font-size:12px;font-weight:800;color:#53606c}.check-grid select{margin-top:4px}@media(max-width:420px){.check-grid{grid-template-columns:1fr}}
-.pin.photo-work:not(.ncr-open):not(.ncr-pending){background:#7b3fc6!important}
+.pin.field-work:not(.ncr-open):not(.ncr-pending){background:#7b3fc6!important}
 </style>
 </head>
 <body>
-<header class="top"><div class="title">FieldVerify Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="projectStatus" class="badge">Project loading…</span><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span><span id="networkStatus" class="badge">Checking connection…</span><select id="itemFilter" class="badge" aria-label="Filter item type"><option value="">All item types</option><option>Caisson</option><option>ERS</option><option>Tieback</option><option>Footing</option><option>Column</option><option>Custom</option></select></div><div class="toolbar"><input id="search" type="text" autocapitalize="characters" placeholder="Item number or ID"><button id="find">Find</button><button id="locate">Start GPS</button><button id="projectsBtn">Projects</button></div></header>
+<header class="top"><div class="title">FieldVerify Pro <span style="font-size:11px;opacity:.75">v7.2 stable</span></div><div class="gpsline"><span id="projectStatus" class="badge">Project loading…</span><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span><span id="networkStatus" class="badge">Checking connection…</span><select id="itemFilter" class="badge" aria-label="Filter item type"><option value="">All item types</option><option>Caisson</option><option>ERS</option><option>Tieback</option><option>Footing</option><option>Column</option><option>Custom</option></select></div><div class="toolbar"><input id="search" type="text" autocapitalize="characters" placeholder="Item number or ID"><button id="find">Find</button><button id="locate">Start GPS</button><button id="projectsBtn">Projects</button></div></header>
 <div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">&#43;</button><button id="mapCenter" class="map-center" aria-label="Center map">&#9678;</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">&minus;</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img id="planImage" src="caisson-plan.png" alt="Foundation inspection drawing"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div><div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Started &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Completed</div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading inspection drawing…</div></aside></div>
 <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
 <input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
@@ -98,7 +98,7 @@ async function loadHotspots(){
 function stateClass(r,n){
  let c=`pin type-${itemType(r).toLowerCase()}`;
  if(num(r.lat)!=null&&num(r.lon)!=null)c+=' known';
- if(Array.isArray(r.photos)&&r.photos.length)c+=' photo-work';
+ if(r.pickupTime||r.unloadTime||r.updated||(Array.isArray(r.photos)&&r.photos.length))c+=' field-work';
  if((r.pickupTime||(Array.isArray(r.photos)&&r.photos.length))&&!r.unloadTime)c+=' picked';
  if(r.unloadTime)c+=' done';
 
@@ -269,7 +269,7 @@ function showTarget(){
    bindTools();
    return
  }
- const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Completed':r.pickupTime?'Started':(r.photos||[]).length?'Photo logged':r.status&&r.status!=='No information'?r.status:'Ready';
+ const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Completed':r.pickupTime?'Started':(r.photos||[]).length?'Photo logged':r.updated?'Restored work':r.status&&r.status!=='No information'?r.status:'Ready';
  $('panel').innerHTML=`<div class="card"><h2>${esc(itemName(n,r))}</h2>
  <div class="statusrow"><span class="pill ${r.unloadTime?'green':''}">${stage}</span>${d!=null?`<span class="pill blue">${d} ft away</span>`:''}</div>
  <div class="big-actions">
@@ -412,10 +412,10 @@ $('drawingInput').onchange=async e=>{const file=e.target.files[0];if(!file)retur
 $('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
 async function allFromStore(db,name){return new Promise((res,rej)=>{const q=db.transaction(name).objectStore(name).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
 async function buildProjectBackup(){
- const photos=[],ncrPdfs=[];let customDrawing=null;
+ const photos=[],ncrPdfs=[],photoIds=new Set(Object.values(records).flatMap(r=>Array.isArray(r?.photos)?r.photos:[]));let customDrawing=null;
  try{
   const db=await openDB();
-  for(const p of await allFromStore(db,'photos'))photos.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
+  for(const p of await allFromStore(db,'photos'))if(photoIds.has(p.id))photos.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
   for(const p of await allFromStore(db,'ncrPdfs'))ncrPdfs.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
   const drawing=await drawingSetting();if(drawing?.blob)customDrawing={name:drawing.name,type:drawing.type,date:drawing.date,pageNumber:drawing.pageNumber||1,pageCount:drawing.pageCount||1,data:await blobToDataURL(drawing.blob)};
  }catch(err){toast(`Backup warning: ${err.message}`)}
@@ -528,21 +528,22 @@ $('restoreInput').onchange=async e=>{
   toast('Restoring project and attachments…');
   let j;if(f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf')){const pdf=await pdfInfo(f),attachments=await pdf.getAttachments(),backup=attachments&&Object.values(attachments).find(x=>String(x.filename||'').toLowerCase().endsWith('.json'));if(!backup?.content)throw Error('This PDF does not contain a FieldVerify project backup');j=JSON.parse(new TextDecoder().decode(backup.content))}else j=JSON.parse(await f.text());let incoming=j.records||j.foundationInspectorRecords||j.localStorage?.foundationInspectorRecords;
   if(typeof incoming==='string')incoming=JSON.parse(incoming);
+  if(!incoming&&j&&typeof j==='object'&&!Array.isArray(j)&&Object.keys(j).some(k=>/^\d+$/.test(k)))incoming=j;
+  if(Array.isArray(incoming))incoming=Object.fromEntries(incoming.map((r,i)=>[String(r?.caisson??r?.number??r?.id??i+1),r]));
   if(!incoming||typeof incoming!=='object')throw Error('No records found');
+  for(const [key,value] of Object.entries(incoming))if(typeof value==='string'){try{incoming[key]=JSON.parse(value)}catch{incoming[key]={...defaultRec(),notes:value}}}
   if(j.project&&typeof j.project==='object'){
-   persist();persistNcr();
-   const restoredProject={...j.project,id:String(j.project.id||`restored-${Date.now()}`),name:String(j.project.name||'Restored Project')},at=projects.findIndex(p=>p.id===restoredProject.id);
-   if(at>=0)projects[at]={...projects[at],...restoredProject};else projects.push(restoredProject);
-   activeProjectId=restoredProject.id;saveProjects();loadRecords()
+   const currentName=activeProject()?.name||'the project currently open',savedName=String(j.project.name||'Restored Project'),mergeCurrent=confirm(`Restore this backup into "${currentName}"?\n\nTap OK to merge the restored records into the drawing currently open.\nTap Cancel to restore and open "${savedName}" as a separate project.`);
+   if(!mergeCurrent){persist();persistNcr();const restoredProject={...j.project,id:String(j.project.id||`restored-${Date.now()}`),name:savedName},at=projects.findIndex(p=>p.id===restoredProject.id);if(at>=0)projects[at]={...projects[at],...restoredProject};else projects.push(restoredProject);activeProjectId=restoredProject.id;saveProjects();loadRecords()}
   }
   records={...records,...incoming};
   const restoredNcr=j.ncrRows||j.foundationInspectorNcrData||j.localStorage?.foundationInspectorNcrData;
   if(Array.isArray(restoredNcr)){ncrRows=restoredNcr;persistNcr()}
   const db=await openDB();let photoCount=0,pdfCount=0,skipped=0;
-  if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});photoCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});const n=String(p.caisson??p.number??'');if(n&&records[n]){const ids=Array.isArray(records[n].photos)?records[n].photos:[];if(!ids.includes(p.id))records[n]={...records[n],photos:[...ids,p.id]}}photoCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
   if(Array.isArray(j.ncrPdfs)&&j.ncrPdfs.length){const tx=db.transaction('ncrPdfs','readwrite'),store=tx.objectStore('ncrPdfs');for(const p of j.ncrPdfs)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});localStorage.setItem(`ncrpdf:${p.id}`,'yes');pdfCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
   if(j.customDrawing?.data){const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:drawingStorageId(),name:j.customDrawing.name||'Restored drawing',type:j.customDrawing.type||'image/png',date:j.customDrawing.date||new Date().toISOString(),pageNumber:j.customDrawing.pageNumber||1,pageCount:j.customDrawing.pageCount||1,blob:dataURLToBlob(j.customDrawing.data)});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing()}
-  persist();persistNcr();selected=null;nearest=null;await applyStoredDrawing();renderPins();showProjectHome();toast(`Restored ${Object.keys(incoming).length} records, ${photoCount} photos, ${pdfCount} NCR PDFs${skipped?` · ${skipped} damaged files skipped`:''}`)
+  persist();persistNcr();selected=null;nearest=null;await applyStoredDrawing();renderPins();showProjectHome();toast(`Restored into ${activeProject()?.name||'current project'}: ${Object.keys(incoming).length} records, ${photoCount} photos, ${pdfCount} NCR PDFs${skipped?` · ${skipped} damaged files skipped`:''}`)
  }catch(err){toast(`Restore failed: ${err.message}`)}
  e.target.value=''
 }
