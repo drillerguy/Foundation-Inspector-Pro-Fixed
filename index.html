@@ -22,6 +22,7 @@
 .map-controls button{min-width:42px;min-height:42px;padding:7px 10px;background:#083a73;color:#fff;border-radius:9px;font-size:18px;touch-action:manipulation}
 .map-controls button.map-reset{font-size:11px;min-width:48px}.map-controls button.map-center{font-size:21px}@media(max-width:760px){.map-wrap{height:57vh}.map-shell{height:100%}.legend{max-width:calc(100% - 74px)}}
 .map .legend{position:absolute;left:10px;bottom:10px;z-index:20;max-width:520px;line-height:1.35}
+.pin{transform:translate(-50%,-50%) scale(var(--pin-scale,1));transform-origin:center}
 @media(max-width:760px){.pin{width:32px;height:32px;line-height:27px;font-size:11px;border-width:3px;box-shadow:0 2px 7px #0009}.pin.nearest{width:46px;height:46px;line-height:40px;font-size:15px}.pin.selected{outline-width:5px}}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-grid label{font-size:12px;font-weight:800;color:#53606c}.check-grid select{margin-top:4px}@media(max-width:420px){.check-grid{grid-template-columns:1fr}}
 </style>
@@ -98,20 +99,23 @@ function setMapWidth(next,anchorX=$('mapShell').clientWidth/2,anchorY=$('mapShel
  next=Math.max(700,Math.min(3600,Math.round(next)));
  const contentX=shell.scrollLeft+anchorX,contentY=shell.scrollTop+anchorY,ratio=next/old;
  mapWidth=next;map.style.width=`${mapWidth}px`;
+ updatePinScale();
  shell.scrollLeft=contentX*ratio-anchorX;shell.scrollTop=contentY*ratio-anchorY;
  drawBlueDot()
 }
 function setMapWidthAt(next,mapX,mapY,anchorX,anchorY){
  const shell=$('mapShell'),map=$('map');next=Math.max(700,Math.min(3600,Math.round(next)));
  mapWidth=next;map.style.width=`${mapWidth}px`;
+ updatePinScale();
  shell.scrollLeft=map.offsetWidth*mapX-anchorX;shell.scrollTop=map.offsetHeight*mapY-anchorY;
  drawBlueDot()
 }
 function resetMapZoom(){setMapWidth(mapBaseWidth)}
+function updatePinScale(){const ratio=mapWidth/mapBaseWidth,scale=Math.min(1.7,Math.max(1,1+(ratio-1)*.55));$('map').style.setProperty('--pin-scale',scale.toFixed(3))}
 function touchDistance(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)}
 function touchCenter(t,shell){const r=shell.getBoundingClientRect();return{x:(t[0].clientX+t[1].clientX)/2-r.left,y:(t[0].clientY+t[1].clientY)/2-r.top}}
 function installMapZoom(){
- const shell=$('mapShell');$('map').style.width=`${mapWidth}px`;
+ const shell=$('mapShell');$('map').style.width=`${mapWidth}px`;updatePinScale();
  $('zoomOut').onclick=()=>setMapWidth(mapWidth/1.25);$('zoomIn').onclick=()=>setMapWidth(mapWidth*1.25);$('zoomReset').onclick=resetMapZoom;
  $('mapCenter').onclick=()=>{autoCenter=true;if(lastPosition&&transform)centerOnGPS();else if(targetNumber())scrollToSpot(targetNumber());else shell.scrollTo({left:0,top:0,behavior:'smooth'})};
  shell.addEventListener('touchstart',e=>{if(e.touches.length!==2)return;autoCenter=false;const center=touchCenter(e.touches,shell),map=$('map');pinchStart={distance:touchDistance(e.touches),width:mapWidth,mapX:(shell.scrollLeft+center.x)/map.offsetWidth,mapY:(shell.scrollTop+center.y)/map.offsetHeight}},{passive:true});
