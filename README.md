@@ -39,6 +39,8 @@
 - Adds Best GPS Lock with multi-reading selection, signal-quality grades, jump rejection, weak-signal warnings, and a dedicated Save Best GPS action.
 - Generalizes inspection records into Caisson, ERS, Tieback, Footing, Column, and Custom item types with custom IDs, type filters, marker shapes, tailored checklists, and item-aware reports; legacy records remain Caissons automatically.
 - Adds Project Home with separate project metadata, records, NCR registers, drawings, module shortcuts, dashboard totals, project switching, and automatic migration of the original job into a preserved legacy project.
+- Restores backups into their saved project, continues past damaged attachments, and reports restored record/photo/PDF counts.
+- Automatically downloads a complete JSON project backup whenever a daily shift report or photo field log is generated.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
