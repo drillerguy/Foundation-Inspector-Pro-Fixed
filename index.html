@@ -339,7 +339,7 @@ function openDashboard(){
 async function makeDailyReport(){
  const items=dailyRecords().sort((a,b)=>a.n-b.n);if(!items.length){toast('No work has been recorded today');return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the daily report');return}w.document.write('<title>Preparing daily reportâ€¦</title><p>Preparing daily report and photosâ€¦</p>');
- await saveRestorablePdf('Daily-Shift-Report',items);
+ try{await saveRestorablePdf('Daily-Shift-Report',items)}catch(err){toast(`PDF backup warning: ${err.message}`)}
  const sections=[];
  for(const {n,r} of items){
   const photos=await getPhotos(n),ncrs=ncrsForCaisson(n),photoHtml=await Promise.all(photos.map(async p=>`<figure><img src="${await blobToDataURL(p.blob)}"><figcaption>${esc(p.name||'Photo')} â€” ${p.date?new Date(p.date).toLocaleString():''}</figcaption></figure>`));
@@ -507,7 +507,7 @@ async function makeShareLog(){
  const n=targetNumber();if(!n){toast('Select an inspection item first');return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the report');return}
  w.document.write('<!doctype html><title>Preparing field logâ€¦</title><p style="font:18px Arial;padding:24px">Preparing field log and photosâ€¦</p>');
- await saveRestorablePdf(`Field-Log-${itemName(n,rec(n))}`,[{n,r:rec(n)}]);
+ try{await saveRestorablePdf(`Field-Log-${itemName(n,rec(n))}`,[{n,r:rec(n)}])}catch(err){toast(`PDF backup warning: ${err.message}`)}
  const r=rec(n),photos=await getPhotos(n),ncrs=ncrsForCaisson(n);
  const photoHtml=await Promise.all(photos.map(async p=>`<div class="photo"><img src="${await blobToDataURL(p.blob)}"><div>${esc(p.name||'Photo')} â€” ${p.date?new Date(p.date).toLocaleString():''}</div></div>`));
  const ncrHtml=ncrs.length?ncrs.map(({row,id})=>`<section class="ncr"><h3>${esc(id)} â€” ${esc(statusText(row))}</h3><p><b>Issue:</b> ${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed')}</p><p><b>Correction required:</b> ${esc(findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed')}</p><p><b>RFI:</b> ${esc(findField(row,['RFI Status','RFI','RFI Number'])||'Not listed')}</p><p><b>Ball in court:</b> ${esc(findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed')}</p></section>`).join(''):'<p>No imported NCR lists this item.</p>';
