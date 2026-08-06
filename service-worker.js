@@ -1,4 +1,4 @@
-const CACHE='fieldverify-pro-v15';
+const CACHE='fieldverify-pro-v16';
 const CORE=['./','./index.html','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./manifest.webmanifest','./recovery.html'];
 
 self.addEventListener('install',event=>{
