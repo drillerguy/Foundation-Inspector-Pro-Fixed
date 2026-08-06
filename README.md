@@ -6,18 +6,19 @@
 2. Upload every file from this package into the repository root.
 3. Replace files when GitHub asks.
 4. Commit the upload.
-5. In **Settings → Pages**, choose **Deploy from a branch**, `main`, and `/ (root)`.
+5. In **Settings â†’ Pages**, choose **Deploy from a branch**, `main`, and `/ (root)`.
 
 ## Included files
 
-- `index.html` — complete inspection app
-- `caisson-data.js` — local numbered caisson locations and verified starting control points
-- `caisson-plan.png` — local caisson drawing
-- `xlsx.full.min.js` — pinned local Excel/NCR reader
-- `manifest.webmanifest` — home-screen/PWA information
-- `service-worker.js` — offline app cache
-- `recovery.html` — emergency record backup and cache clearing
-- `README.md` — these instructions
+- `index.html` â€” complete inspection app
+- `caisson-data.js` â€” local numbered caisson locations and verified starting control points
+- `caisson-plan.png` â€” local caisson drawing
+- `xlsx.full.min.js` â€” pinned local Excel/NCR reader
+- `pdf.min.mjs` and `pdf.worker.min.mjs` â€” pinned local PDF drawing renderer
+- `manifest.webmanifest` â€” home-screen/PWA information
+- `service-worker.js` â€” offline app cache
+- `recovery.html` â€” emergency record backup and cache clearing
+- `README.md` â€” these instructions
 
 ## Fixed features
 
@@ -33,7 +34,7 @@
 - Adds a per-caisson quick inspection checklist for rebar, bottom cleanliness, water control, dimensions, concrete readiness, and overall Pass/Hold status; checklist results appear in reports.
 - Provides smoother focal-point pinch zoom with one-finger panning and a stationary side rail for zoom, fit, and center controls.
 - Works offline after the first successful online load and shows the current connection state.
-- Loads a replacement PNG, JPG, WebP, or GIF drawing into local device storage, restores the original drawing on demand, and includes the custom drawing in project backups.
+- Loads PDF, PNG, JPG, WebP, or GIF drawings into local device storage, renders a selected PDF page for map use, restores the original drawing on demand, and includes the source drawing in project backups.
 - Adds per-caisson correction history and safe undo for pickup, unload, notes, inspection, GPS clearing, and photo removal.
 - Adds Best GPS Lock with multi-reading selection, signal-quality grades, jump rejection, weak-signal warnings, and a dedicated Save Best GPS action.
 - Generalizes inspection records into Caisson, ERS, Tieback, Footing, Column, and Custom item types with custom IDs, type filters, marker shapes, tailored checklists, and item-aware reports; legacy records remain Caissons automatically.
