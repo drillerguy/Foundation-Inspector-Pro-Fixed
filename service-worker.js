@@ -1,4 +1,4 @@
-const CACHE='foundation-inspector-v8';
+const CACHE='foundation-inspector-v9';
 const CORE=['./','./index.html','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./manifest.webmanifest','./recovery.html'];
 
 self.addEventListener('install',event=>{
