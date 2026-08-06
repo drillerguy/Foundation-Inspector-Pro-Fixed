@@ -1,5 +1,5 @@
-const CACHE='fieldverify-pro-v16';
-const CORE=['./','./index.html','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./manifest.webmanifest','./recovery.html'];
+const CACHE='fieldverify-pro-v17';
+const CORE=['./','./index.html','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./manifest.webmanifest','./recovery.html'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting()));
