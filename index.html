@@ -97,7 +97,7 @@ async function loadHotspots(){
 function stateClass(r,n){
  let c=`pin type-${itemType(r).toLowerCase()}`;
  if(num(r.lat)!=null&&num(r.lon)!=null)c+=' known';
- if(r.pickupTime&&!r.unloadTime)c+=' picked';
+ if((r.pickupTime||(Array.isArray(r.photos)&&r.photos.length))&&!r.unloadTime)c+=' picked';
  if(r.unloadTime)c+=' done';
 
  const ncrState=effectiveNcrState(n);
@@ -267,7 +267,7 @@ function showTarget(){
    bindTools();
    return
  }
- const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Completed':r.pickupTime?'Started':'Ready';
+ const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Completed':r.pickupTime?'Started':(r.photos||[]).length?'Photo logged':r.status&&r.status!=='No information'?r.status:'Ready';
  $('panel').innerHTML=`<div class="card"><h2>${esc(itemName(n,r))}</h2>
  <div class="statusrow"><span class="pill ${r.unloadTime?'green':''}">${stage}</span>${d!=null?`<span class="pill blue">${d} ft away</span>`:''}</div>
  <div class="big-actions">
@@ -282,7 +282,7 @@ function showTarget(){
  <label class="label">Field Notes</label>
  <textarea id="notes" class="field" rows="4">${esc(r.notes)}</textarea>
  <button id="saveNotes" class="action next" style="min-height:42px;font-size:15px;margin-top:7px">Save Notes</button>
- <div class="tiny" style="margin-top:8px">Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
+ <div class="notice" style="margin-top:10px"><b>Saved Record Details</b><br>Status: ${esc(r.status||stage)}<br>Updated: ${r.updated?new Date(r.updated).toLocaleString():'—'}<br>Photos: ${(r.photos||[]).length}<br>Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
  </div>
  ${itemSetupCard(n,r)}
  ${inspectionCard(r)}
