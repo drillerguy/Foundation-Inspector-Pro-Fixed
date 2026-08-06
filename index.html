@@ -239,6 +239,7 @@ function ncrSummaryHtml(n){
 function inspectionFields(){return[['rebar','Rebar'],['bottom','Bottom clean'],['water','Water controlled'],['dimensions','Dimensions'],['concrete','Concrete ready']]}
 function inspectionReportHtml(r){const c=r.inspection||{};return`<table>${inspectionFields().map(([k,l])=>`<tr><th>${l}</th><td>${esc(c[k]||'Not checked')}</td></tr>`).join('')}<tr><th>Overall</th><td><b>${esc(c.overall||'Not set')}</b></td></tr></table>`}
 function inspectionCard(r){const c=r.inspection||{},options=k=>`<option value="">Not checked</option><option value="Pass" ${c[k]==='Pass'?'selected':''}>Pass</option><option value="Hold" ${c[k]==='Hold'?'selected':''}>Hold</option><option value="N/A" ${c[k]==='N/A'?'selected':''}>N/A</option>`;return`<div class="card"><h2 style="font-size:17px">Quick Inspection Checklist</h2><div class="check-grid">${inspectionFields().map(([k,l])=>`<label>${l}<select id="inspect-${k}" class="field">${options(k)}</select></label>`).join('')}</div><label class="label">OVERALL INSPECTION STATUS</label><select id="inspect-overall" class="field"><option value="" ${!c.overall?'selected':''}>Not set</option><option value="PASS" ${c.overall==='PASS'?'selected':''}>PASS</option><option value="HOLD" ${c.overall==='HOLD'?'selected':''}>HOLD</option></select><button id="saveInspection" class="action next" style="min-height:44px;font-size:15px;margin-top:8px">SAVE INSPECTION</button></div>`}
+function correctionCard(r){const history=Array.isArray(r.history)?r.history:[],last=history.at(-1);return`<div class="card"><h2 style="font-size:17px">Correct a Mistake</h2><div class="tools"><button id="undoAction" ${last?'':'disabled'}>Undo Last Action</button><button id="clearGps" ${num(r.lat)==null&&num(r.lon)==null?'disabled':''}>Clear Saved GPS</button><button id="resetInspection" ${r.inspection?'':'disabled'}>Reset Inspection</button></div><div class="tiny" style="margin-top:8px">${last?`Last action: ${esc(last.label)} · ${new Date(last.time).toLocaleString()}`:'No reversible changes recorded for this caisson yet.'}</div>${history.length?`<details style="margin-top:8px"><summary class="tiny">Correction history (${history.length})</summary><ul class="warning-list tiny">${history.slice(-5).reverse().map(h=>`<li>${esc(h.label)} — ${new Date(h.time).toLocaleString()}</li>`).join('')}</ul></details>`:''}</div>`}
 function showTarget(){
  const n=targetNumber();
  $('targetStatus').textContent=n?`Target ${n}`:'No target';
@@ -263,6 +264,7 @@ function showTarget(){
  <div class="tiny" style="margin-top:8px">Pickup: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Unload: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
  </div>
  ${inspectionCard(r)}
+ ${correctionCard(r)}
  ${ncrSummaryHtml(n)}
  <div class="card"><h2 style="font-size:17px">Photos</h2><div id="photoPreview" class="photo-grid"></div><div class="tiny" id="photoCount">Loading photos…</div></div>
  ${toolCard()}`;
@@ -271,8 +273,11 @@ function showTarget(){
  $('photoBtn').onclick=()=>{$('cameraInput').dataset.caisson=n;$('cameraInput').click()};
  $('libraryBtn').onclick=()=>{$('libraryInput').dataset.caisson=n;$('libraryInput').click()};
  $('nextBtn').onclick=chooseNext;
- $('saveNotes').onclick=()=>{records[n]={...r,notes:$('notes').value,updated:new Date().toISOString()};persist();toast('Notes saved')};
- $('saveInspection').onclick=()=>{const inspection={};for(const [k] of inspectionFields())inspection[k]=$(`inspect-${k}`).value;inspection.overall=$('inspect-overall').value;records[n]={...rec(n),inspection,updated:new Date().toISOString()};persist();showTarget();toast(`Inspection ${inspection.overall||'saved'}`)};
+ $('saveNotes').onclick=()=>historyChange(n,'Updated field notes',['notes'],{notes:$('notes').value});
+ $('saveInspection').onclick=()=>{const inspection={};for(const [k] of inspectionFields())inspection[k]=$(`inspect-${k}`).value;inspection.overall=$('inspect-overall').value;historyChange(n,`Updated inspection: ${inspection.overall||'not set'}`,['inspection'],{inspection})};
+ $('undoAction').onclick=()=>undoLastChange(n);
+ $('clearGps').onclick=()=>{if(confirm(`Clear the saved GPS coordinates for caisson ${n}?`))historyChange(n,'Cleared saved GPS',['lat','lon','verified'],{lat:null,lon:null,verified:false})};
+ $('resetInspection').onclick=()=>{if(confirm(`Reset the inspection checklist for caisson ${n}?`))historyChange(n,'Reset inspection checklist',['inspection'],{inspection:null})};
  bindTools();
  showPhotoPreview(n)
 }
@@ -342,8 +347,11 @@ function bindTools(){
  if($('ncrImportBtn'))$('ncrImportBtn').onclick=()=>$('ncrExcelInput').click();
  if($('ncrClearBtn'))$('ncrClearBtn').onclick=()=>{if(confirm('Remove the imported NCR spreadsheet? Caisson records and photos will not be deleted.')){ncrRows=[];localStorage.removeItem(NCR_KEY);renderPins();showTarget();toast('NCR data cleared')}}
 }
-function markPickup(n){const r=rec(n),g=gpsSnapshot();records[n]={...r,pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',lat:g?.lat??r.lat,lon:g?.lon??r.lon,updated:new Date().toISOString()};persist();toast(`Caisson ${n} picked up`);showTarget()}
-function markUnload(n){const r=rec(n),g=gpsSnapshot();records[n]={...r,unloadTime:new Date().toISOString(),unloadGPS:g,status:'Unloaded',verified:!!g,lat:g?.lat??r.lat,lon:g?.lon??r.lon,updated:new Date().toISOString()};persist();toast(`Caisson ${n} unloaded`);selected=null;chooseNext()}
+function cloneField(value){return value==null?value:JSON.parse(JSON.stringify(value))}
+function historyChange(n,label,fields,values,after){const r=rec(n),before={};for(const field of fields)before[field]=cloneField(r[field]);const history=[...(Array.isArray(r.history)?r.history:[]),{label,time:new Date().toISOString(),fields,before}].slice(-30);records[n]={...r,...values,history,updated:new Date().toISOString()};persist();showTarget();toast(label);if(after)after()}
+function undoLastChange(n){const r=rec(n),history=Array.isArray(r.history)?[...r.history]:[],last=history.pop();if(!last){toast('Nothing to undo');return}if(!confirm(`Undo “${last.label}” for caisson ${n}?`))return;records[n]={...r,...last.before,history,updated:new Date().toISOString()};persist();showTarget();toast(`Undid: ${last.label}`)}
+function markPickup(n){const r=rec(n),g=gpsSnapshot();historyChange(n,'Picked up caisson',['pickupTime','pickupGPS','status','lat','lon'],{pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',lat:g?.lat??r.lat,lon:g?.lon??r.lon})}
+function markUnload(n){const r=rec(n),g=gpsSnapshot();historyChange(n,'Unloaded caisson',['unloadTime','unloadGPS','status','verified','lat','lon'],{unloadTime:new Date().toISOString(),unloadGPS:g,status:'Unloaded',verified:!!g,lat:g?.lat??r.lat,lon:g?.lon??r.lon},()=>{selected=null;chooseNext()})}
 function chooseNext(){if(!lastPosition){selected=null;showTarget();toast('Start GPS first');return}const b=nearestUnfinished(lastPosition.coords.latitude,lastPosition.coords.longitude);nearest=b?.n??null;selected=nearest;renderPins();showTarget();if(selected)scrollToSpot(selected)}
 function nearestUnfinished(lat,lon){let best=null;for(const h of HOTSPOTS){const r=rec(h.caisson);if(r.unloadTime||num(r.lat)==null||num(r.lon)==null)continue;const d=haversine(lat,lon,+r.lat,+r.lon);if(!best||d<best.d)best={n:h.caisson,d}}return best}
 function haversine(a,b,c,d){const R=6371000,t=Math.PI/180,da=(c-a)*t,db=(d-b)*t,q=Math.sin(da/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(db/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
@@ -395,7 +403,8 @@ async function savePhotos(n,files){
 async function showPhotoPreview(n){
  const box=$('photoPreview'),count=$('photoCount');if(!box)return;
  const photos=await getPhotos(n);count.textContent=`${photos.length} photo${photos.length===1?'':'s'} saved`;
- box.innerHTML=photos.slice(0,6).map(p=>`<img src="${URL.createObjectURL(p.blob)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px">`).join('')
+ box.innerHTML=photos.slice(0,6).map(p=>`<div><img src="${URL.createObjectURL(p.blob)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><button class="remove-photo next" data-id="${esc(p.id)}" style="width:100%;padding:7px;margin-top:3px">Remove</button></div>`).join('');
+ box.querySelectorAll('.remove-photo').forEach(button=>button.onclick=()=>{if(confirm(`Remove this photo from caisson ${n}?`)){const r=rec(n);historyChange(n,'Removed a photo',['photos'],{photos:(r.photos||[]).filter(id=>id!==button.dataset.id)})}})
 }
 async function getPhotos(n){
  const ids=rec(n).photos||[];if(!ids.length)return[];
