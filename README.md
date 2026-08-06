@@ -15,6 +15,7 @@
 - `caisson-plan.png` â€” local caisson drawing
 - `xlsx.full.min.js` â€” pinned local Excel/NCR reader
 - `pdf.min.mjs` and `pdf.worker.min.mjs` â€” pinned local PDF drawing renderer
+- `pdf-lib.min.js` â€” pinned local restorable PDF report generator
 - `manifest.webmanifest` â€” home-screen/PWA information
 - `service-worker.js` â€” offline app cache
 - `recovery.html` â€” emergency record backup and cache clearing
@@ -40,7 +41,8 @@
 - Generalizes inspection records into Caisson, ERS, Tieback, Footing, Column, and Custom item types with custom IDs, type filters, marker shapes, tailored checklists, and item-aware reports; legacy records remain Caissons automatically.
 - Adds Project Home with separate project metadata, records, NCR registers, drawings, module shortcuts, dashboard totals, project switching, and automatic migration of the original job into a preserved legacy project.
 - Restores backups into their saved project, continues past damaged attachments, and reports restored record/photo/PDF counts.
-- Automatically downloads a complete JSON project backup whenever a daily shift report or photo field log is generated.
+- Generates a readable PDF log with an embedded complete project backup whenever a daily report or photo log is created; Restore Project accepts that PDF directly.
+- Adds a Back to FieldVerify Pro button to daily and item report pages.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
