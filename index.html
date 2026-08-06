@@ -28,6 +28,7 @@
 .toolbar{grid-template-columns:minmax(0,1fr) auto auto auto}.project-list{display:grid;gap:8px}.project-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid #d7dee7;border-radius:12px;padding:10px}.project-row button{padding:10px;background:#083a73;color:#fff}.module-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.module-grid button{padding:14px;background:#e7edf4;color:#16202a}.project-form{display:grid;gap:8px}@media(max-width:420px){.toolbar{grid-template-columns:minmax(0,1fr) auto auto}.toolbar #projectsBtn{grid-column:1/-1}.module-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.pin{width:32px;height:32px;line-height:27px;font-size:11px;border-width:3px;box-shadow:0 2px 7px #0009}.pin.nearest{width:46px;height:46px;line-height:40px;font-size:15px}.pin.selected{outline-width:5px}}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-grid label{font-size:12px;font-weight:800;color:#53606c}.check-grid select{margin-top:4px}@media(max-width:420px){.check-grid{grid-template-columns:1fr}}
+.pin.photo-work:not(.ncr-open):not(.ncr-pending){background:#7b3fc6!important}
 </style>
 </head>
 <body>
@@ -97,6 +98,7 @@ async function loadHotspots(){
 function stateClass(r,n){
  let c=`pin type-${itemType(r).toLowerCase()}`;
  if(num(r.lat)!=null&&num(r.lon)!=null)c+=' known';
+ if(Array.isArray(r.photos)&&r.photos.length)c+=' photo-work';
  if((r.pickupTime||(Array.isArray(r.photos)&&r.photos.length))&&!r.unloadTime)c+=' picked';
  if(r.unloadTime)c+=' done';
 
