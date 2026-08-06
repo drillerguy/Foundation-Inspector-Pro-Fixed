@@ -338,6 +338,7 @@ function openDashboard(){
 async function makeDailyReport(){
  const items=dailyRecords().sort((a,b)=>a.n-b.n);if(!items.length){toast('No work has been recorded today');return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the daily report');return}w.document.write('<title>Preparing daily reportâ€¦</title><p>Preparing daily report and photosâ€¦</p>');
+ await saveProjectBackup('Daily-Report');
  const sections=[];
  for(const {n,r} of items){
   const photos=await getPhotos(n),ncrs=ncrsForCaisson(n),photoHtml=await Promise.all(photos.map(async p=>`<figure><img src="${await blobToDataURL(p.blob)}"><figcaption>${esc(p.name||'Photo')} â€” ${p.date?new Date(p.date).toLocaleString():''}</figcaption></figure>`));
@@ -407,7 +408,7 @@ async function restoreOriginalDrawing(){try{const db=await openDB(),tx=db.transa
 $('drawingInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(!file.type.startsWith('image/')&&file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf'))throw Error('Choose a PDF, PNG, JPG, WebP, or GIF file');toast(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')?'Rendering PDF drawingâ€¦':'Loading drawingâ€¦');await saveDrawing(file)}catch(err){toast(`Drawing load failed: ${err.message}`)}e.target.value=''};
 $('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
 async function allFromStore(db,name){return new Promise((res,rej)=>{const q=db.transaction(name).objectStore(name).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
-async function backupProject(){
+async function buildProjectBackup(){
  const photos=[],ncrPdfs=[];let customDrawing=null;
  try{
   const db=await openDB();
@@ -422,8 +423,13 @@ async function backupProject(){
   if(!ncrPdfs.some(p=>p.id===id))ncrPdfs.push({id,name:`${id}.pdf`,type:'application/pdf',data:localStorage.getItem(key)});
  }
  const payload={app:'FieldVerify Pro',version:7,created:new Date().toISOString(),project:activeProject(),records,photos,ncrRows,ncrPdfs,customDrawing,localStorage:{foundationInspectorRecords:records,foundationInspectorNcrData:ncrRows}};
- const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));a.download=`FieldVerify-Pro-Backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast(`Backup created: ${Object.keys(records).length} records, ${photos.length} photos, ${ncrPdfs.length} NCR PDFs`)
+ return{payload,photos,ncrPdfs}
 }
+async function saveProjectBackup(reason='Backup'){
+ const {payload,photos,ncrPdfs}=await buildProjectBackup(),safeReason=String(reason).replace(/[^a-z0-9-]+/gi,'-'),url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'})),a=document.createElement('a');
+ a.href=url;a.download=`FieldVerify-Pro-${safeReason}-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);toast(`Data saved to phone: ${Object.keys(records).length} records, ${photos.length} photos, ${ncrPdfs.length} NCR PDFs`)
+}
+async function backupProject(){await saveProjectBackup('Backup')}
 function blobToDataURL(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){const [h,b]=s.split(','),mime=(h.match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})}
 
@@ -489,6 +495,7 @@ async function makeShareLog(){
  const n=targetNumber();if(!n){toast('Select an inspection item first');return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the report');return}
  w.document.write('<!doctype html><title>Preparing field logâ€¦</title><p style="font:18px Arial;padding:24px">Preparing field log and photosâ€¦</p>');
+ await saveProjectBackup(`Field-Log-${itemName(n,rec(n))}`);
  const r=rec(n),photos=await getPhotos(n),ncrs=ncrsForCaisson(n);
  const photoHtml=await Promise.all(photos.map(async p=>`<div class="photo"><img src="${await blobToDataURL(p.blob)}"><div>${esc(p.name||'Photo')} â€” ${p.date?new Date(p.date).toLocaleString():''}</div></div>`));
  const ncrHtml=ncrs.length?ncrs.map(({row,id})=>`<section class="ncr"><h3>${esc(id)} â€” ${esc(statusText(row))}</h3><p><b>Issue:</b> ${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed')}</p><p><b>Correction required:</b> ${esc(findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed')}</p><p><b>RFI:</b> ${esc(findField(row,['RFI Status','RFI','RFI Number'])||'Not listed')}</p><p><b>Ball in court:</b> ${esc(findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed')}</p></section>`).join(''):'<p>No imported NCR lists this item.</p>';
@@ -504,16 +511,24 @@ async function makeShareLog(){
 $('restoreInput').onchange=async e=>{
  const f=e.target.files[0];if(!f)return;
  try{
-  const j=JSON.parse(await f.text()),incoming=j.records||j.foundationInspectorRecords||j.localStorage?.foundationInspectorRecords;
+  toast('Restoring project and attachmentsâ€¦');
+  const j=JSON.parse(await f.text());let incoming=j.records||j.foundationInspectorRecords||j.localStorage?.foundationInspectorRecords;
+  if(typeof incoming==='string')incoming=JSON.parse(incoming);
   if(!incoming||typeof incoming!=='object')throw Error('No records found');
+  if(j.project&&typeof j.project==='object'){
+   persist();persistNcr();
+   const restoredProject={...j.project,id:String(j.project.id||`restored-${Date.now()}`),name:String(j.project.name||'Restored Project')},at=projects.findIndex(p=>p.id===restoredProject.id);
+   if(at>=0)projects[at]={...projects[at],...restoredProject};else projects.push(restoredProject);
+   activeProjectId=restoredProject.id;saveProjects();loadRecords()
+  }
   records={...records,...incoming};
   const restoredNcr=j.ncrRows||j.foundationInspectorNcrData||j.localStorage?.foundationInspectorNcrData;
   if(Array.isArray(restoredNcr)){ncrRows=restoredNcr;persistNcr()}
-  const db=await openDB();
-  if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data)store.put({...p,blob:dataURLToBlob(p.data),data:undefined});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-  if(Array.isArray(j.ncrPdfs)&&j.ncrPdfs.length){const tx=db.transaction('ncrPdfs','readwrite'),store=tx.objectStore('ncrPdfs');for(const p of j.ncrPdfs)if(p.id&&p.data){store.put({...p,blob:dataURLToBlob(p.data),data:undefined});localStorage.setItem(`ncrpdf:${p.id}`,'yes')};await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  const db=await openDB();let photoCount=0,pdfCount=0,skipped=0;
+  if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});photoCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  if(Array.isArray(j.ncrPdfs)&&j.ncrPdfs.length){const tx=db.transaction('ncrPdfs','readwrite'),store=tx.objectStore('ncrPdfs');for(const p of j.ncrPdfs)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});localStorage.setItem(`ncrpdf:${p.id}`,'yes');pdfCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
   if(j.customDrawing?.data){const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:drawingStorageId(),name:j.customDrawing.name||'Restored drawing',type:j.customDrawing.type||'image/png',date:j.customDrawing.date||new Date().toISOString(),pageNumber:j.customDrawing.pageNumber||1,pageCount:j.customDrawing.pageCount||1,blob:dataURLToBlob(j.customDrawing.data)});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing()}
-  persist();selected=null;nearest=null;showTarget();toast(`Project restored: ${Object.keys(incoming).length} records`)
+  persist();persistNcr();selected=null;nearest=null;await applyStoredDrawing();renderPins();showProjectHome();toast(`Restored ${Object.keys(incoming).length} records, ${photoCount} photos, ${pdfCount} NCR PDFs${skipped?` Â· ${skipped} damaged files skipped`:''}`)
  }catch(err){toast(`Restore failed: ${err.message}`)}
  e.target.value=''
 }
