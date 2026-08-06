@@ -43,7 +43,7 @@
 - Restores backups into their saved project, continues past damaged attachments, and reports restored record/photo/PDF counts.
 - Generates a readable PDF log with an embedded complete project backup whenever a daily report or photo log is created; Restore Project accepts that PDF directly.
 - Adds a Back to FieldVerify Pro button to daily and item report pages.
-- Adds a Send Full Project PDF to Office button that gathers saved records, GPS, notes, inspections, NCR details, photos, drawing, and attachments into a restorable PDF and opens the phone share sheet.
+- Adds a memory-optimized Send Full Project PDF to Office flow that gathers saved records, GPS, notes, inspections, NCR details, and photos, then presents a separate Share PDF Now button required by iPhone sharing.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
