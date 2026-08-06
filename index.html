@@ -23,13 +23,15 @@
 .map-controls button.map-reset{font-size:11px;min-width:48px}.map-controls button.map-center{font-size:21px}@media(max-width:760px){.map-wrap{height:57vh}.map-shell{height:100%}.legend{max-width:calc(100% - 74px)}}
 .map .legend{position:absolute;left:10px;bottom:10px;z-index:20;max-width:520px;line-height:1.35}
 .pin{transform:translate(-50%,-50%) scale(var(--pin-scale,1));transform-origin:center}
+.pin.type-tieback{border-radius:4px}.pin.type-footing{border-radius:2px}.pin.type-column{border-radius:50% 50% 4px 4px}.pin.type-ers{border-style:double;border-width:4px}.pin.type-custom{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);border-radius:0}.item-setup{display:grid;grid-template-columns:1fr 1fr;gap:8px}.item-setup button{grid-column:1/-1}@media(max-width:420px){.item-setup{grid-template-columns:1fr}}
+#itemFilter{color:#fff}#itemFilter option{color:#111}
 @media(max-width:760px){.pin{width:32px;height:32px;line-height:27px;font-size:11px;border-width:3px;box-shadow:0 2px 7px #0009}.pin.nearest{width:46px;height:46px;line-height:40px;font-size:15px}.pin.selected{outline-width:5px}}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-grid label{font-size:12px;font-weight:800;color:#53606c}.check-grid select{margin-top:4px}@media(max-width:420px){.check-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span><span id="networkStatus" class="badge">Checking connection…</span></div><div class="toolbar"><input id="search" type="number" inputmode="numeric" placeholder="Caisson number"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
-<div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="mapCenter" class="map-center" aria-label="Center map">◎</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img id="planImage" src="caisson-plan.png" alt="Foundation caisson plan"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div><div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Picked &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Unloaded</div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading caisson drawing…</div></aside></div>
+<header class="top"><div class="title">Foundation Inspector Pro <span style="font-size:11px;opacity:.75">v7 stable</span></div><div class="gpsline"><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span><span id="networkStatus" class="badge">Checking connection…</span><select id="itemFilter" class="badge" aria-label="Filter item type"><option value="">All item types</option><option>Caisson</option><option>ERS</option><option>Tieback</option><option>Footing</option><option>Column</option><option>Custom</option></select></div><div class="toolbar"><input id="search" type="text" autocapitalize="characters" placeholder="Item number or ID"><button id="find">Find</button><button id="locate">Start GPS</button></div></header>
+<div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="mapCenter" class="map-center" aria-label="Center map">◎</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img id="planImage" src="caisson-plan.png" alt="Foundation inspection drawing"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div><div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Started &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Completed</div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading inspection drawing…</div></aside></div>
 <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
 <input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
 <input id="restoreInput" class="hidden" type="file" accept="application/json,.json">
@@ -40,11 +42,16 @@
 <script src="caisson-data.js"></script>
 <script>
 const OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
+const ITEM_TYPES=['Caisson','ERS','Tieback','Footing','Column','Custom'];
 let HOTSPOTS=[],records={},ncrRows=[],selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,bestPosition=null,gpsSamples=[],lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null;
 let mapBaseWidth=window.matchMedia('(max-width:760px)').matches?1500:1800,mapWidth=mapBaseWidth,pinchStart=null,pinchFrame=null,pinchPending=null;
 const $=id=>document.getElementById(id),num=v=>{const n=Number(v);return Number.isFinite(n)?n:null},esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
-function defaultRec(){return{status:'No information',verified:false,notes:'',lat:null,lon:null,condition:'',updated:'',photos:[],pickupTime:null,unloadTime:null,pickupGPS:null,unloadGPS:null}}
+function defaultRec(){return{itemType:'Caisson',itemLabel:'',status:'No information',verified:false,notes:'',lat:null,lon:null,condition:'',updated:'',photos:[],pickupTime:null,unloadTime:null,pickupGPS:null,unloadGPS:null}}
 function rec(n){return{...defaultRec(),...(records[n]||{})}}
+function itemType(r){return ITEM_TYPES.includes(r?.itemType)?r.itemType:'Caisson'}
+function itemName(n,r=rec(n)){return String(r.itemLabel||'').trim()||`${itemType(r)} ${n}`}
+function pinLabel(n,r=rec(n)){const custom=String(r.itemLabel||'').trim();return custom?(custom.length>6?custom.slice(0,5)+'…':custom):String(n)}
+function currentFilter(){return $('itemFilter')?.value||''}
 function loadRecords(){
  try{
    records={...JSON.parse(localStorage.getItem(OLD_KEY)||'{}'),...JSON.parse(localStorage.getItem(NEW_KEY)||'{}')};
@@ -56,7 +63,7 @@ function loadRecords(){
 function persist(){localStorage.setItem(NEW_KEY,JSON.stringify(records));renderPins();fitTransform()}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.add('hidden'),2400)}
 async function loadHotspots(){
-  $('panel').innerHTML='<div class="empty">Loading drawing and caisson locations…</div>';
+  $('panel').innerHTML='<div class="empty">Loading drawing and inspection locations…</div>';
   const data=window.FOUNDATION_CAISSON_DATA;
   if(!data||!Array.isArray(data.HOTSPOTS)||!data.STARTING)throw Error('Local caisson data is missing');
   HOTSPOTS=data.HOTSPOTS;
@@ -75,10 +82,10 @@ async function loadHotspots(){
   fitTransform();
   showTarget();
   bindTools();
-  toast(`${HOTSPOTS.length} caissons loaded`);
+  toast(`${HOTSPOTS.length} inspection items loaded`);
 }
 function stateClass(r,n){
- let c='pin';
+ let c=`pin type-${itemType(r).toLowerCase()}`;
  if(num(r.lat)!=null&&num(r.lon)!=null)c+=' known';
  if(r.pickupTime&&!r.unloadTime)c+=' picked';
  if(r.unloadTime)c+=' done';
@@ -92,7 +99,7 @@ function stateClass(r,n){
  if(n===selected)c+=' selected';
  return c
 }
-function renderPins(){if(!HOTSPOTS.length)return;$('pins').innerHTML=HOTSPOTS.map(h=>`<button class="${stateClass(rec(h.caisson),h.caisson)}" data-n="${h.caisson}" style="left:${h.x}%;top:${h.y}%">${h.caisson}</button>`).join('');document.querySelectorAll('.pin').forEach(p=>p.onclick=()=>{selected=+p.dataset.n;showTarget();scrollToSpot(selected)})}
+function renderPins(){if(!HOTSPOTS.length)return;const filter=currentFilter();$('pins').innerHTML=HOTSPOTS.filter(h=>!filter||itemType(rec(h.caisson))===filter).map(h=>{const r=rec(h.caisson);return`<button class="${stateClass(r,h.caisson)}" data-n="${h.caisson}" aria-label="${esc(itemName(h.caisson,r))}" style="left:${h.x}%;top:${h.y}%">${esc(pinLabel(h.caisson,r))}</button>`}).join('');document.querySelectorAll('.pin').forEach(p=>p.onclick=()=>{selected=+p.dataset.n;showTarget();scrollToSpot(selected)})}
 function scrollToSpot(n){const h=HOTSPOTS.find(x=>x.caisson===n);if(!h)return;const s=$('mapShell'),m=$('map');s.scrollTo({left:m.offsetWidth*h.x/100-s.clientWidth/2,top:m.offsetHeight*h.y/100-s.clientHeight/2,behavior:'smooth'})}
 function setMapWidth(next,anchorX=$('mapShell').clientWidth/2,anchorY=$('mapShell').clientHeight/2){
  const shell=$('mapShell'),map=$('map'),old=mapWidth;
@@ -199,7 +206,7 @@ function ncrSummaryHtml(n){
  const list=ncrsForCaisson(n);
  const manual=rec(n).ncrManualStatus||'';
  const selector=`<div class="ncr-manual">
-   <label class="label">NCR STATUS FOR THIS CAISSON</label>
+   <label class="label">NCR STATUS FOR THIS ITEM</label>
    <select class="field" onchange="updateManualNcrStatus(${n},this.value)">
      <option value="" ${manual===''?'selected':''}>Use imported spreadsheet status</option>
      <option value="open" ${manual==='open'?'selected':''}>Open</option>
@@ -212,7 +219,7 @@ function ncrSummaryHtml(n){
 
  if(!ncrRows.length)return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="notice">No NCR spreadsheet has been imported. Tap <b>Import NCR Excel File</b> below when you receive the current register.</div>${selector}</div>`;
 
- if(!list.length)return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="tiny">No imported NCR lists Caisson ${n}.</div>${selector}</div>`;
+ if(!list.length)return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="tiny">No imported NCR lists ${esc(itemName(n,rec(n)))}.</div>${selector}</div>`;
 
  return `<div class="card"><h2 style="font-size:17px">NCR Information — ${list.length} Found</h2>
  <div class="statusrow"><span class="pill ${effectiveNcrState(n)==='cleared'?'green':''}">Map status: ${ncrStateLabel(n)}</span></div>
@@ -237,35 +244,37 @@ function ncrSummaryHtml(n){
  }).join('')}
  ${selector}</div>`
 }
-function inspectionFields(){return[['rebar','Rebar'],['bottom','Bottom clean'],['water','Water controlled'],['dimensions','Dimensions'],['concrete','Concrete ready']]}
-function inspectionReportHtml(r){const c=r.inspection||{};return`<table>${inspectionFields().map(([k,l])=>`<tr><th>${l}</th><td>${esc(c[k]||'Not checked')}</td></tr>`).join('')}<tr><th>Overall</th><td><b>${esc(c.overall||'Not set')}</b></td></tr></table>`}
-function inspectionCard(r){const c=r.inspection||{},options=k=>`<option value="">Not checked</option><option value="Pass" ${c[k]==='Pass'?'selected':''}>Pass</option><option value="Hold" ${c[k]==='Hold'?'selected':''}>Hold</option><option value="N/A" ${c[k]==='N/A'?'selected':''}>N/A</option>`;return`<div class="card"><h2 style="font-size:17px">Quick Inspection Checklist</h2><div class="check-grid">${inspectionFields().map(([k,l])=>`<label>${l}<select id="inspect-${k}" class="field">${options(k)}</select></label>`).join('')}</div><label class="label">OVERALL INSPECTION STATUS</label><select id="inspect-overall" class="field"><option value="" ${!c.overall?'selected':''}>Not set</option><option value="PASS" ${c.overall==='PASS'?'selected':''}>PASS</option><option value="HOLD" ${c.overall==='HOLD'?'selected':''}>HOLD</option></select><button id="saveInspection" class="action next" style="min-height:44px;font-size:15px;margin-top:8px">SAVE INSPECTION</button></div>`}
-function correctionCard(r){const history=Array.isArray(r.history)?r.history:[],last=history.at(-1);return`<div class="card"><h2 style="font-size:17px">Correct a Mistake</h2><div class="tools"><button id="undoAction" ${last?'':'disabled'}>Undo Last Action</button><button id="clearGps" ${num(r.lat)==null&&num(r.lon)==null?'disabled':''}>Clear Saved GPS</button><button id="resetInspection" ${r.inspection?'':'disabled'}>Reset Inspection</button></div><div class="tiny" style="margin-top:8px">${last?`Last action: ${esc(last.label)} · ${new Date(last.time).toLocaleString()}`:'No reversible changes recorded for this caisson yet.'}</div>${history.length?`<details style="margin-top:8px"><summary class="tiny">Correction history (${history.length})</summary><ul class="warning-list tiny">${history.slice(-5).reverse().map(h=>`<li>${esc(h.label)} — ${new Date(h.time).toLocaleString()}</li>`).join('')}</ul></details>`:''}</div>`}
+function inspectionFields(r){const sets={Caisson:[['rebar','Rebar'],['bottom','Bottom clean'],['water','Water controlled'],['dimensions','Dimensions'],['concrete','Concrete ready']],ERS:[['alignment','Alignment'],['bracing','Bracing'],['connections','Connections'],['excavation','Excavation safety'],['drainage','Drainage']],Tieback:[['location','Location'],['angle','Angle'],['bondLength','Bond length'],['proofTest','Proof test'],['lockoff','Lock-off']],Footing:[['subgrade','Subgrade'],['dimensions','Dimensions'],['rebar','Rebar'],['embeds','Embeds'],['concrete','Concrete ready']],Column:[['location','Location'],['plumb','Plumb'],['rebar','Rebar'],['forms','Forms'],['embeds','Embeds']],Custom:[['condition','Condition'],['dimensions','Dimensions'],['installation','Installation'],['safety','Safety'],['ready','Ready for next step']]};return sets[itemType(r)]||sets.Custom}
+function inspectionReportHtml(r){const c=r.inspection||{};return`<table>${inspectionFields(r).map(([k,l])=>`<tr><th>${l}</th><td>${esc(c[k]||'Not checked')}</td></tr>`).join('')}<tr><th>Overall</th><td><b>${esc(c.overall||'Not set')}</b></td></tr></table>`}
+function inspectionCard(r){const c=r.inspection||{},options=k=>`<option value="">Not checked</option><option value="Pass" ${c[k]==='Pass'?'selected':''}>Pass</option><option value="Hold" ${c[k]==='Hold'?'selected':''}>Hold</option><option value="N/A" ${c[k]==='N/A'?'selected':''}>N/A</option>`;return`<div class="card"><h2 style="font-size:17px">${esc(itemType(r))} Inspection Checklist</h2><div class="check-grid">${inspectionFields(r).map(([k,l])=>`<label>${l}<select id="inspect-${k}" class="field">${options(k)}</select></label>`).join('')}</div><label class="label">OVERALL INSPECTION STATUS</label><select id="inspect-overall" class="field"><option value="" ${!c.overall?'selected':''}>Not set</option><option value="PASS" ${c.overall==='PASS'?'selected':''}>PASS</option><option value="HOLD" ${c.overall==='HOLD'?'selected':''}>HOLD</option></select><button id="saveInspection" class="action next" style="min-height:44px;font-size:15px;margin-top:8px">SAVE INSPECTION</button></div>`}
+function itemSetupCard(n,r){return`<div class="card"><h2 style="font-size:17px">Item Type and ID</h2><div class="item-setup"><label class="tiny">TYPE<select id="itemType" class="field">${ITEM_TYPES.map(t=>`<option ${itemType(r)===t?'selected':''}>${t}</option>`).join('')}</select></label><label class="tiny">CUSTOM ID / NAME<input id="itemLabel" class="field" value="${esc(r.itemLabel||'')}" placeholder="Example: T-12 or C5"></label><button id="saveItemSetup" class="next" style="padding:11px">Save Item Setup</button></div></div>`}
+function correctionCard(r){const history=Array.isArray(r.history)?r.history:[],last=history.at(-1);return`<div class="card"><h2 style="font-size:17px">Correct a Mistake</h2><div class="tools"><button id="undoAction" ${last?'':'disabled'}>Undo Last Action</button><button id="clearGps" ${num(r.lat)==null&&num(r.lon)==null?'disabled':''}>Clear Saved GPS</button><button id="resetInspection" ${r.inspection?'':'disabled'}>Reset Inspection</button></div><div class="tiny" style="margin-top:8px">${last?`Last action: ${esc(last.label)} · ${new Date(last.time).toLocaleString()}`:'No reversible changes recorded for this item yet.'}</div>${history.length?`<details style="margin-top:8px"><summary class="tiny">Correction history (${history.length})</summary><ul class="warning-list tiny">${history.slice(-5).reverse().map(h=>`<li>${esc(h.label)} — ${new Date(h.time).toLocaleString()}</li>`).join('')}</ul></details>`:''}</div>`}
 function showTarget(){
  const n=targetNumber();
- $('targetStatus').textContent=n?`Target ${n}`:'No target';
+ $('targetStatus').textContent=n?itemName(n,rec(n)):'No target';
  if(!n){
-   $('panel').innerHTML=`<div class="card"><h2>Ready to work</h2><div class="notice">Start GPS or search for a caisson number.</div></div>${toolCard()}`;
+   $('panel').innerHTML=`<div class="card"><h2>Ready to work</h2><div class="notice">Start GPS or search for an item number or ID.</div></div>${toolCard()}`;
    bindTools();
    return
  }
- const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Unloaded':r.pickupTime?'Picked up':'Ready';
- $('panel').innerHTML=`<div class="card"><h2>Caisson ${n}</h2>
+ const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Completed':r.pickupTime?'Started':'Ready';
+ $('panel').innerHTML=`<div class="card"><h2>${esc(itemName(n,r))}</h2>
  <div class="statusrow"><span class="pill ${r.unloadTime?'green':''}">${stage}</span>${d!=null?`<span class="pill blue">${d} ft away</span>`:''}</div>
  <div class="big-actions">
-  <button id="pickupBtn" class="action pickup" aria-label="Log caisson GPS and pick up">LOG CAISSON GPS / PICK UP</button>
-  <button id="unloadBtn" class="action unload">UNLOAD</button>
+  <button id="pickupBtn" class="action pickup" aria-label="Start work and log item GPS">START WORK / LOG GPS</button>
+  <button id="unloadBtn" class="action unload">COMPLETE / LOG GPS</button>
   <button id="saveGpsBtn" class="action photo">SAVE BEST GPS</button>
   <button id="photoBtn" class="action photo">TAKE PHOTO</button>
   <button id="libraryBtn" class="action photo">ADD EXISTING PHOTOS</button>
-  <button id="nextBtn" class="action next">NEXT CAISSON</button>
+  <button id="nextBtn" class="action next">NEXT ITEM</button>
  </div>
- <div class="tiny" style="margin-top:7px">Log Caisson GPS / Pick Up saves the best latitude/longitude reading and pickup time.</div>
+ <div class="tiny" style="margin-top:7px">Start and Complete save the best latitude/longitude reading and action time.</div>
  <label class="label">Field Notes</label>
  <textarea id="notes" class="field" rows="4">${esc(r.notes)}</textarea>
  <button id="saveNotes" class="action next" style="min-height:42px;font-size:15px;margin-top:7px">Save Notes</button>
- <div class="tiny" style="margin-top:8px">Pickup: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Unload: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
+ <div class="tiny" style="margin-top:8px">Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
  </div>
+ ${itemSetupCard(n,r)}
  ${inspectionCard(r)}
  ${correctionCard(r)}
  ${ncrSummaryHtml(n)}
@@ -278,10 +287,11 @@ function showTarget(){
  $('libraryBtn').onclick=()=>{$('libraryInput').dataset.caisson=n;$('libraryInput').click()};
  $('nextBtn').onclick=chooseNext;
  $('saveNotes').onclick=()=>historyChange(n,'Updated field notes',['notes'],{notes:$('notes').value});
- $('saveInspection').onclick=()=>{const inspection={};for(const [k] of inspectionFields())inspection[k]=$(`inspect-${k}`).value;inspection.overall=$('inspect-overall').value;historyChange(n,`Updated inspection: ${inspection.overall||'not set'}`,['inspection'],{inspection})};
+ $('saveItemSetup').onclick=()=>historyChange(n,'Updated item type / ID',['itemType','itemLabel'],{itemType:$('itemType').value,itemLabel:$('itemLabel').value.trim()});
+ $('saveInspection').onclick=()=>{const inspection={};for(const [k] of inspectionFields(r))inspection[k]=$(`inspect-${k}`).value;inspection.overall=$('inspect-overall').value;historyChange(n,`Updated inspection: ${inspection.overall||'not set'}`,['inspection'],{inspection})};
  $('undoAction').onclick=()=>undoLastChange(n);
- $('clearGps').onclick=()=>{if(confirm(`Clear the saved GPS coordinates for caisson ${n}?`))historyChange(n,'Cleared saved GPS',['lat','lon','verified'],{lat:null,lon:null,verified:false})};
- $('resetInspection').onclick=()=>{if(confirm(`Reset the inspection checklist for caisson ${n}?`))historyChange(n,'Reset inspection checklist',['inspection'],{inspection:null})};
+ $('clearGps').onclick=()=>{if(confirm(`Clear the saved GPS coordinates for ${itemName(n,rec(n))}?`))historyChange(n,'Cleared saved GPS',['lat','lon','verified'],{lat:null,lon:null,verified:false})};
+ $('resetInspection').onclick=()=>{if(confirm(`Reset the inspection checklist for ${itemName(n,rec(n))}?`))historyChange(n,'Reset inspection checklist',['inspection'],{inspection:null})};
  bindTools();
  showPhotoPreview(n)
 }
@@ -296,7 +306,7 @@ function dashboardWarnings(items){
  const warnings=[];
  for(const {n,r} of items){
   const missing=[];if(num(r.lat)==null||num(r.lon)==null)missing.push('GPS');if(!String(r.notes||'').trim())missing.push('notes');if(!(r.photos||[]).length)missing.push('photos');if(!r.inspection?.overall)missing.push('inspection status');
-  if(missing.length)warnings.push(`Caisson ${n}: missing ${missing.join(', ')}`)
+  if(missing.length)warnings.push(`${itemName(n,r)}: missing ${missing.join(', ')}`)
  }
  return warnings
 }
@@ -306,12 +316,12 @@ function openDashboard(){
  for(const h of HOTSPOTS){const s=effectiveNcrState(h.caisson);if(ncrCounts[s]!=null)ncrCounts[s]++}
  $('targetStatus').textContent='Daily Dashboard';
  $('panel').innerHTML=`<div class="card"><h2>Today's Field Dashboard</h2><div class="tiny">${new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
- <div class="dashboard-grid"><div class="metric"><b>${picked}</b><span>Picked up today</span></div><div class="metric"><b>${unloaded}</b><span>Unloaded today</span></div><div class="metric"><b>${active.length}</b><span>Still active</span></div><div class="metric"><b>${daily.length}</b><span>Worked today</span></div><div class="metric"><b>${ncrCounts.open}</b><span>Open NCR</span></div><div class="metric"><b>${ncrCounts.pending}</b><span>Pending NCR</span></div></div>
+ <div class="dashboard-grid"><div class="metric"><b>${picked}</b><span>Started today</span></div><div class="metric"><b>${unloaded}</b><span>Completed today</span></div><div class="metric"><b>${active.length}</b><span>Still active</span></div><div class="metric"><b>${daily.length}</b><span>Worked today</span></div><div class="metric"><b>${ncrCounts.open}</b><span>Open NCR</span></div><div class="metric"><b>${ncrCounts.pending}</b><span>Pending NCR</span></div></div>
  <button id="dailyReportBtn" class="dashboard-action dashboard-print">MAKE DAILY SHIFT REPORT / PDF</button>
- ${active.length?`<button id="resumeBtn" class="dashboard-action">RESUME CAISSON ${active[0].n}</button>`:'<div class="notice" style="margin-top:8px">No picked-up caissons are waiting to be unloaded.</div>'}
+ ${active.length?`<button id="resumeBtn" class="dashboard-action">RESUME ${esc(itemName(active[0].n,active[0].r))}</button>`:'<div class="notice" style="margin-top:8px">No started items are waiting to be completed.</div>'}
  <button id="dashboardBack" class="dashboard-action dashboard-back">Back to Map</button></div>
   <div class="card"><h2 style="font-size:17px">Data Check</h2>${warnings.length?`<ul class="warning-list">${warnings.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:"<div class=\"pill green\">Today's records have GPS, notes, photos, and inspection status.</div>"}</div>
- <div class="card"><h2 style="font-size:17px">Today's Caissons</h2>${daily.length?daily.sort((a,b)=>a.n-b.n).map(({n,r})=>`<button class="dashboard-action dashboard-back daily-caisson" data-n="${n}">Caisson ${n} — ${esc(r.status||'No information')}</button>`).join(''):'<div class="tiny">No caissons have been worked today.</div>'}</div>`;
+ <div class="card"><h2 style="font-size:17px">Today's Inspection Items</h2>${daily.length?daily.sort((a,b)=>itemName(a.n,a.r).localeCompare(itemName(b.n,b.r))).map(({n,r})=>`<button class="dashboard-action dashboard-back daily-caisson" data-n="${n}">${esc(itemName(n,r))} — ${esc(r.status||'No information')}</button>`).join(''):'<div class="tiny">No items have been worked today.</div>'}</div>`;
  $('dailyReportBtn').onclick=makeDailyReport;$('dashboardBack').onclick=showTarget;
  if($('resumeBtn'))$('resumeBtn').onclick=()=>{selected=active[0].n;showTarget();scrollToSpot(selected)};
  document.querySelectorAll('.daily-caisson').forEach(b=>b.onclick=()=>{selected=+b.dataset.n;showTarget();scrollToSpot(selected)})
@@ -322,9 +332,9 @@ async function makeDailyReport(){
  const sections=[];
  for(const {n,r} of items){
   const photos=await getPhotos(n),ncrs=ncrsForCaisson(n),photoHtml=await Promise.all(photos.map(async p=>`<figure><img src="${await blobToDataURL(p.blob)}"><figcaption>${esc(p.name||'Photo')} — ${p.date?new Date(p.date).toLocaleString():''}</figcaption></figure>`));
-   sections.push(`<section><h2>Caisson ${n} — ${esc(r.status||'No information')}</h2><table><tr><th>Saved GPS</th><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><th>Pickup</th><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}${r.pickupGPS?` · ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>Unload</th><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}${r.unloadGPS?` · ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>NCR status</th><td>${ncrStateLabel(n)}</td></tr></table><h3>Inspection Checklist</h3>${inspectionReportHtml(r)}<h3>Notes</h3><p class="notes">${esc(r.notes||'No field notes')}</p>${ncrs.length?`<h3>NCR Details</h3>${ncrs.map(({row,id})=>`<p><b>${esc(id)} — ${esc(statusText(row))}</b><br>${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'No description')}</p>`).join('')}`:''}<h3>Photos (${photos.length})</h3><div class="photos">${photoHtml.join('')}</div></section>`)
+   sections.push(`<section><h2>${esc(itemName(n,r))} — ${esc(r.status||'No information')}</h2><table><tr><th>Item type</th><td>${esc(itemType(r))}</td></tr><tr><th>Saved GPS</th><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><th>Started</th><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}${r.pickupGPS?` · ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>Completed</th><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}${r.unloadGPS?` · ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>NCR status</th><td>${ncrStateLabel(n)}</td></tr></table><h3>Inspection Checklist</h3>${inspectionReportHtml(r)}<h3>Notes</h3><p class="notes">${esc(r.notes||'No field notes')}</p>${ncrs.length?`<h3>NCR Details</h3>${ncrs.map(({row,id})=>`<p><b>${esc(id)} — ${esc(statusText(row))}</b><br>${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'No description')}</p>`).join('')}`:''}<h3>Photos (${photos.length})</h3><div class="photos">${photoHtml.join('')}</div></section>`)
  }
- const active=activeRecords(),html=`<!doctype html><html><head><meta charset="utf-8"><title>Foundation Inspector Daily Report ${todayKey()}</title><style>body{font:14px Arial;margin:28px;color:#111}button{font-size:18px;padding:12px 18px}section{break-before:page;border-top:3px solid #083a73;padding-top:10px}section:first-of-type{break-before:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:7px;text-align:left}.notes{white-space:pre-wrap}.photos{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0;break-inside:avoid}img{width:100%;max-height:500px;object-fit:contain}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Save / Share as PDF</button><h1>Foundation Inspector Daily Shift Report</h1><p>${new Date().toLocaleString()}</p><p><b>Caissons worked:</b> ${items.length} &nbsp; <b>Still active:</b> ${active.length}</p>${sections.join('')}</body></html>`;
+ const active=activeRecords(),html=`<!doctype html><html><head><meta charset="utf-8"><title>Foundation Inspector Daily Report ${todayKey()}</title><style>body{font:14px Arial;margin:28px;color:#111}button{font-size:18px;padding:12px 18px}section{break-before:page;border-top:3px solid #083a73;padding-top:10px}section:first-of-type{break-before:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:7px;text-align:left}.notes{white-space:pre-wrap}.photos{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0;break-inside:avoid}img{width:100%;max-height:500px;object-fit:contain}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Save / Share as PDF</button><h1>Foundation Inspector Daily Shift Report</h1><p>${new Date().toLocaleString()}</p><p><b>Items worked:</b> ${items.length} &nbsp; <b>Still active:</b> ${active.length}</p>${sections.join('')}</body></html>`;
  w.document.open();w.document.write(html);w.document.close()
 }
 function toolCard(){return`<div class="card"><div class="tools">
@@ -349,17 +359,17 @@ function bindTools(){
  if($('drawingBtn'))$('drawingBtn').onclick=()=>$('drawingInput').click();
  if($('drawingResetBtn'))$('drawingResetBtn').onclick=restoreOriginalDrawing;
  if($('ncrImportBtn'))$('ncrImportBtn').onclick=()=>$('ncrExcelInput').click();
- if($('ncrClearBtn'))$('ncrClearBtn').onclick=()=>{if(confirm('Remove the imported NCR spreadsheet? Caisson records and photos will not be deleted.')){ncrRows=[];localStorage.removeItem(NCR_KEY);renderPins();showTarget();toast('NCR data cleared')}}
+ if($('ncrClearBtn'))$('ncrClearBtn').onclick=()=>{if(confirm('Remove the imported NCR spreadsheet? Inspection records and photos will not be deleted.')){ncrRows=[];localStorage.removeItem(NCR_KEY);renderPins();showTarget();toast('NCR data cleared')}}
 }
 function cloneField(value){return value==null?value:JSON.parse(JSON.stringify(value))}
 function historyChange(n,label,fields,values,after){const r=rec(n),before={};for(const field of fields)before[field]=cloneField(r[field]);const history=[...(Array.isArray(r.history)?r.history:[]),{label,time:new Date().toISOString(),fields,before}].slice(-30);records[n]={...r,...values,history,updated:new Date().toISOString()};persist();showTarget();toast(label);if(after)after()}
-function undoLastChange(n){const r=rec(n),history=Array.isArray(r.history)?[...r.history]:[],last=history.pop();if(!last){toast('Nothing to undo');return}if(!confirm(`Undo “${last.label}” for caisson ${n}?`))return;records[n]={...r,...last.before,history,updated:new Date().toISOString()};persist();showTarget();toast(`Undid: ${last.label}`)}
+function undoLastChange(n){const r=rec(n),history=Array.isArray(r.history)?[...r.history]:[],last=history.pop();if(!last){toast('Nothing to undo');return}if(!confirm(`Undo “${last.label}” for ${itemName(n,r)}?`))return;records[n]={...r,...last.before,history,updated:new Date().toISOString()};persist();showTarget();toast(`Undid: ${last.label}`)}
 function approveGps(action,g){if(!g)return confirm(`${action} without a GPS reading? Start GPS and wait for a lock for the best result.`);if(g.accuracy>15)return confirm(`GPS quality is ${g.quality} (±${Math.round(g.accuracy*3.28084)} ft). Continue with ${action}?`);return true}
 function saveBestGps(n){const g=gpsSnapshot();if(!g){toast('Start GPS and wait for a location lock');return}if(!approveGps('saving this location',g))return;historyChange(n,`Saved best GPS · ${g.quality} ±${Math.round(g.accuracy*3.28084)} ft`,['lat','lon','verified'],{lat:g.lat,lon:g.lon,verified:g.accuracy<=15})}
-function markPickup(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Pick Up',g))return;historyChange(n,'Picked up caisson',['pickupTime','pickupGPS','status','lat','lon'],{pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',lat:g?.lat??r.lat,lon:g?.lon??r.lon})}
-function markUnload(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Unload',g))return;historyChange(n,'Unloaded caisson',['unloadTime','unloadGPS','status','verified','lat','lon'],{unloadTime:new Date().toISOString(),unloadGPS:g,status:'Unloaded',verified:!!g&&g.accuracy<=15,lat:g?.lat??r.lat,lon:g?.lon??r.lon},()=>{selected=null;chooseNext()})}
+function markPickup(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Start Work',g))return;historyChange(n,'Started work / logged GPS',['pickupTime','pickupGPS','status','lat','lon'],{pickupTime:new Date().toISOString(),pickupGPS:g,status:'Work started',lat:g?.lat??r.lat,lon:g?.lon??r.lon})}
+function markUnload(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Complete Work',g))return;historyChange(n,'Completed work / logged GPS',['unloadTime','unloadGPS','status','verified','lat','lon'],{unloadTime:new Date().toISOString(),unloadGPS:g,status:'Completed',verified:!!g&&g.accuracy<=15,lat:g?.lat??r.lat,lon:g?.lon??r.lon},()=>{selected=null;chooseNext()})}
 function chooseNext(){if(!lastPosition){selected=null;showTarget();toast('Start GPS first');return}const b=nearestUnfinished(lastPosition.coords.latitude,lastPosition.coords.longitude);nearest=b?.n??null;selected=nearest;renderPins();showTarget();if(selected)scrollToSpot(selected)}
-function nearestUnfinished(lat,lon){let best=null;for(const h of HOTSPOTS){const r=rec(h.caisson);if(r.unloadTime||num(r.lat)==null||num(r.lon)==null)continue;const d=haversine(lat,lon,+r.lat,+r.lon);if(!best||d<best.d)best={n:h.caisson,d}}return best}
+function nearestUnfinished(lat,lon){let best=null,filter=currentFilter();for(const h of HOTSPOTS){const r=rec(h.caisson);if((filter&&itemType(r)!==filter)||r.unloadTime||num(r.lat)==null||num(r.lon)==null)continue;const d=haversine(lat,lon,+r.lat,+r.lon);if(!best||d<best.d)best={n:h.caisson,d}}return best}
 function haversine(a,b,c,d){const R=6371000,t=Math.PI/180,da=(c-a)*t,db=(d-b)*t,q=Math.sin(da/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(db/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
 function solve3(A,b){A=A.map((r,i)=>[...r,b[i]]);for(let i=0;i<3;i++){let p=i;for(let j=i+1;j<3;j++)if(Math.abs(A[j][i])>Math.abs(A[p][i]))p=j;[A[i],A[p]]=[A[p],A[i]];if(Math.abs(A[i][i])<1e-14)return null;for(let j=i+1;j<3;j++){const f=A[j][i]/A[i][i];for(let k=i;k<4;k++)A[j][k]-=f*A[i][k]}}const x=[0,0,0];for(let i=2;i>=0;i--)x[i]=(A[i][3]-A[i].slice(i+1,3).reduce((s,v,k)=>s+v*x[i+1+k],0))/A[i][i];return x}
 function regress(points,key){const M=[[0,0,0],[0,0,0],[0,0,0]],b=[0,0,0];for(const p of points){const v=[p.lon,p.lat,1],y=p[key];for(let i=0;i<3;i++){b[i]+=v[i]*y;for(let j=0;j<3;j++)M[i][j]+=v[i]*v[j]}}return solve3(M,b)}
@@ -410,7 +420,7 @@ async function showPhotoPreview(n){
  const box=$('photoPreview'),count=$('photoCount');if(!box)return;
  const photos=await getPhotos(n);count.textContent=`${photos.length} photo${photos.length===1?'':'s'} saved`;
  box.innerHTML=photos.slice(0,6).map(p=>`<div><img src="${URL.createObjectURL(p.blob)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><button class="remove-photo next" data-id="${esc(p.id)}" style="width:100%;padding:7px;margin-top:3px">Remove</button></div>`).join('');
- box.querySelectorAll('.remove-photo').forEach(button=>button.onclick=()=>{if(confirm(`Remove this photo from caisson ${n}?`)){const r=rec(n);historyChange(n,'Removed a photo',['photos'],{photos:(r.photos||[]).filter(id=>id!==button.dataset.id)})}})
+ box.querySelectorAll('.remove-photo').forEach(button=>button.onclick=()=>{if(confirm(`Remove this photo from ${itemName(n,rec(n))}?`)){const r=rec(n);historyChange(n,'Removed a photo',['photos'],{photos:(r.photos||[]).filter(id=>id!==button.dataset.id)})}})
 }
 async function getPhotos(n){
  const ids=rec(n).photos||[];if(!ids.length)return[];
@@ -458,17 +468,17 @@ async function openNcrPdf(id){
  const w=window.open(source,'_blank');if(!w)toast('Allow pop-ups to open the NCR PDF');else if(source.startsWith('blob:'))setTimeout(()=>URL.revokeObjectURL(source),60000)
 }
 async function makeShareLog(){
- const n=targetNumber();if(!n){toast('Select a caisson first');return}
+ const n=targetNumber();if(!n){toast('Select an inspection item first');return}
  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the report');return}
  w.document.write('<!doctype html><title>Preparing field log…</title><p style="font:18px Arial;padding:24px">Preparing field log and photos…</p>');
  const r=rec(n),photos=await getPhotos(n),ncrs=ncrsForCaisson(n);
  const photoHtml=await Promise.all(photos.map(async p=>`<div class="photo"><img src="${await blobToDataURL(p.blob)}"><div>${esc(p.name||'Photo')} — ${p.date?new Date(p.date).toLocaleString():''}</div></div>`));
- const ncrHtml=ncrs.length?ncrs.map(({row,id})=>`<section class="ncr"><h3>${esc(id)} — ${esc(statusText(row))}</h3><p><b>Issue:</b> ${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed')}</p><p><b>Correction required:</b> ${esc(findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed')}</p><p><b>RFI:</b> ${esc(findField(row,['RFI Status','RFI','RFI Number'])||'Not listed')}</p><p><b>Ball in court:</b> ${esc(findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed')}</p></section>`).join(''):'<p>No imported NCR lists this caisson.</p>';
- const html=`<!doctype html><html><head><meta charset="utf-8"><title>Caisson ${n} Field Log</title><style>
+ const ncrHtml=ncrs.length?ncrs.map(({row,id})=>`<section class="ncr"><h3>${esc(id)} — ${esc(statusText(row))}</h3><p><b>Issue:</b> ${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed')}</p><p><b>Correction required:</b> ${esc(findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed')}</p><p><b>RFI:</b> ${esc(findField(row,['RFI Status','RFI','RFI Number'])||'Not listed')}</p><p><b>Ball in court:</b> ${esc(findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed')}</p></section>`).join(''):'<p>No imported NCR lists this item.</p>';
+ const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(itemName(n,r))} Field Log</title><style>
  body{font:14px Arial,sans-serif;color:#111;margin:28px}h1{margin-bottom:4px}.meta{border-collapse:collapse;width:100%;margin:12px 0}.meta td{border:1px solid #aaa;padding:7px}.ncr{border:2px solid #d49300;padding:10px;margin:10px 0;break-inside:avoid}.photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}.photo{break-inside:avoid;border:1px solid #aaa;padding:6px}.photo img{width:100%;max-height:520px;object-fit:contain}@media print{button{display:none}.photos{display:block}.photo{margin:0 0 12px}}
  </style></head><body><button onclick="window.print()" style="font-size:18px;padding:12px 20px">Save / Share as PDF</button>
- <h1>Foundation Inspector — Caisson ${n}</h1><div>Created ${new Date().toLocaleString()}</div>
- <table class="meta"><tr><td><b>Status</b></td><td>${esc(r.status||'No information')}</td></tr><tr><td><b>Saved latitude / longitude</b></td><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><td><b>Pickup</b></td><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}</td></tr><tr><td><b>Pickup GPS</b></td><td>${r.pickupGPS?`${r.pickupGPS.lat}, ${r.pickupGPS.lon} · accuracy ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft · ${new Date(r.pickupGPS.time).toLocaleString()}`:'Not captured'}</td></tr><tr><td><b>Unload</b></td><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}</td></tr><tr><td><b>Unload GPS</b></td><td>${r.unloadGPS?`${r.unloadGPS.lat}, ${r.unloadGPS.lon} · accuracy ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft · ${new Date(r.unloadGPS.time).toLocaleString()}`:'Not captured'}</td></tr></table>
+ <h1>Foundation Inspector — ${esc(itemName(n,r))}</h1><div>Created ${new Date().toLocaleString()}</div>
+ <table class="meta"><tr><td><b>Item type</b></td><td>${esc(itemType(r))}</td></tr><tr><td><b>Status</b></td><td>${esc(r.status||'No information')}</td></tr><tr><td><b>Saved latitude / longitude</b></td><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><td><b>Started</b></td><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}</td></tr><tr><td><b>Start GPS</b></td><td>${r.pickupGPS?`${r.pickupGPS.lat}, ${r.pickupGPS.lon} · accuracy ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft · ${new Date(r.pickupGPS.time).toLocaleString()}`:'Not captured'}</td></tr><tr><td><b>Completed</b></td><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}</td></tr><tr><td><b>Completion GPS</b></td><td>${r.unloadGPS?`${r.unloadGPS.lat}, ${r.unloadGPS.lon} · accuracy ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft · ${new Date(r.unloadGPS.time).toLocaleString()}`:'Not captured'}</td></tr></table>
  <h2>Inspection Checklist</h2>${inspectionReportHtml(r)}<h2>Field Notes</h2><p style="white-space:pre-wrap">${esc(r.notes||'No field notes')}</p><h2>NCR Information</h2><p><b>Map NCR status:</b> ${esc(ncrStateLabel(n))}</p>${ncrHtml}<h2>Photos (${photos.length})</h2><div class="photos">${photoHtml.join('')}</div></body></html>`;
  w.document.open();w.document.write(html);w.document.close()
 }
@@ -491,7 +501,7 @@ $('restoreInput').onchange=async e=>{
 }
 function updateNetworkStatus(){const b=$('networkStatus');b.textContent=navigator.onLine?'Online · offline ready':'Offline · data saving';b.style.background=navigator.onLine?'#16803d':'#b42318'}
 async function enableOffline(){updateNetworkStatus();addEventListener('online',()=>{updateNetworkStatus();toast('Connection restored')});addEventListener('offline',()=>{updateNetworkStatus();toast('Offline mode — work will keep saving')});if(!('serviceWorker'in navigator))return;try{const reg=await navigator.serviceWorker.register('./service-worker.js');reg.update().catch(()=>{});reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(worker)worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)toast('App update ready — refresh when convenient')})})}catch(err){console.warn('Offline setup failed',err)}}
-$('find').onclick=()=>{const n=+$('search').value;if(HOTSPOTS.some(h=>h.caisson===n)){selected=n;showTarget();scrollToSpot(n)}else toast('Caisson not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;
+$('find').onclick=()=>{const q=$('search').value.trim().toLowerCase();const hit=HOTSPOTS.find(h=>String(h.caisson)===q||itemName(h.caisson,rec(h.caisson)).toLowerCase()===q)||HOTSPOTS.find(h=>itemName(h.caisson,rec(h.caisson)).toLowerCase().includes(q));if(q&&hit){selected=hit.caisson;showTarget();scrollToSpot(selected)}else toast('Item not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('itemFilter').onchange=()=>{renderPins();selected=null;nearest=null;showTarget();toast(currentFilter()?`Showing ${currentFilter()} items`:'Showing all item types')};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;
 installMapZoom();loadRecords();applyStoredDrawing();loadHotspots().catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Reload the page. If you opened the app before, offline mode will use the saved copy.</p></div>${toolCard()}`;bindTools();});bindTools();enableOffline();document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
 </script>
 </body>
