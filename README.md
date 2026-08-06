@@ -6,20 +6,20 @@
 2. Upload every file from this package into the repository root.
 3. Replace files when GitHub asks.
 4. Commit the upload.
-5. In **Settings â†’ Pages**, choose **Deploy from a branch**, `main`, and `/ (root)`.
+5. In **Settings → Pages**, choose **Deploy from a branch**, `main`, and `/ (root)`.
 
 ## Included files
 
-- `index.html` â€” complete inspection app
-- `caisson-data.js` â€” local numbered caisson locations and verified starting control points
-- `caisson-plan.png` â€” local caisson drawing
-- `xlsx.full.min.js` â€” pinned local Excel/NCR reader
-- `pdf.min.mjs` and `pdf.worker.min.mjs` â€” pinned local PDF drawing renderer
-- `pdf-lib.min.js` â€” pinned local restorable PDF report generator
-- `manifest.webmanifest` â€” home-screen/PWA information
-- `service-worker.js` â€” offline app cache
-- `recovery.html` â€” emergency record backup and cache clearing
-- `README.md` â€” these instructions
+- `index.html` — complete inspection app
+- `caisson-data.js` — local numbered caisson locations and verified starting control points
+- `caisson-plan.png` — local caisson drawing
+- `xlsx.full.min.js` — pinned local Excel/NCR reader
+- `pdf.min.mjs` and `pdf.worker.min.mjs` — pinned local PDF drawing renderer
+- `pdf-lib.min.js` — pinned local restorable PDF report generator
+- `manifest.webmanifest` — home-screen/PWA information
+- `service-worker.js` — offline app cache
+- `recovery.html` — emergency record backup and cache clearing
+- `README.md` — these instructions
 
 ## Fixed features
 
@@ -43,6 +43,7 @@
 - Restores backups into their saved project, continues past damaged attachments, and reports restored record/photo/PDF counts.
 - Generates a readable PDF log with an embedded complete project backup whenever a daily report or photo log is created; Restore Project accepts that PDF directly.
 - Adds a Back to FieldVerify Pro button to daily and item report pages.
+- Adds a Send Full Project PDF to Office button that gathers saved records, GPS, notes, inspections, NCR details, photos, drawing, and attachments into a restorable PDF and opens the phone share sheet.
 - Adds a recovery page that can export records even when the main page has cache trouble.
 - Uses a new service-worker cache name so older broken cached pages are replaced.
 
