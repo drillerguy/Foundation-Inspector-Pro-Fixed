@@ -40,7 +40,7 @@
 <script src="caisson-data.js"></script>
 <script>
 const OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
-let HOTSPOTS=[],records={},ncrRows=[],selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null;
+let HOTSPOTS=[],records={},ncrRows=[],selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,bestPosition=null,gpsSamples=[],lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null;
 let mapBaseWidth=window.matchMedia('(max-width:760px)').matches?1500:1800,mapWidth=mapBaseWidth,pinchStart=null,pinchFrame=null,pinchPending=null;
 const $=id=>document.getElementById(id),num=v=>{const n=Number(v);return Number.isFinite(n)?n:null},esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
 function defaultRec(){return{status:'No information',verified:false,notes:'',lat:null,lon:null,condition:'',updated:'',photos:[],pickupTime:null,unloadTime:null,pickupGPS:null,unloadGPS:null}}
@@ -123,7 +123,8 @@ function installMapZoom(){
  shell.addEventListener('touchend',e=>{if(e.touches.length<2){pinchStart=null;pinchPending=null;if(pinchFrame){cancelAnimationFrame(pinchFrame);pinchFrame=null}}},{passive:true});
 }
 function targetNumber(){return selected??nearest}
-function gpsSnapshot(){if(!lastPosition)return null;return{lat:lastPosition.coords.latitude,lon:lastPosition.coords.longitude,accuracy:lastPosition.coords.accuracy,time:new Date(lastPosition.timestamp||Date.now()).toISOString()}}
+function gpsQuality(accuracy){return accuracy<=3?'Excellent':accuracy<=8?'Good':accuracy<=15?'Fair':'Poor'}
+function gpsSnapshot(){const p=bestPosition&&Date.now()-(bestPosition.timestamp||0)<30000?bestPosition:lastPosition;if(!p)return null;return{lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,time:new Date(p.timestamp||Date.now()).toISOString(),quality:gpsQuality(p.coords.accuracy),sampleCount:gpsSamples.length}}
 function distanceTo(n){const r=rec(n);return lastPosition&&num(r.lat)!=null&&num(r.lon)!=null?Math.round(haversine(lastPosition.coords.latitude,lastPosition.coords.longitude,+r.lat,+r.lon)*3.28084):null}
 
 function normalizeHeader(s){return String(s??'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
@@ -254,6 +255,7 @@ function showTarget(){
  <div class="big-actions">
   <button id="pickupBtn" class="action pickup">PICK UP</button>
   <button id="unloadBtn" class="action unload">UNLOAD</button>
+  <button id="saveGpsBtn" class="action photo">SAVE BEST GPS</button>
   <button id="photoBtn" class="action photo">TAKE PHOTO</button>
   <button id="libraryBtn" class="action photo">ADD EXISTING PHOTOS</button>
   <button id="nextBtn" class="action next">NEXT CAISSON</button>
@@ -270,6 +272,7 @@ function showTarget(){
  ${toolCard()}`;
  $('pickupBtn').onclick=()=>markPickup(n);
  $('unloadBtn').onclick=()=>markUnload(n);
+ $('saveGpsBtn').onclick=()=>saveBestGps(n);
  $('photoBtn').onclick=()=>{$('cameraInput').dataset.caisson=n;$('cameraInput').click()};
  $('libraryBtn').onclick=()=>{$('libraryInput').dataset.caisson=n;$('libraryInput').click()};
  $('nextBtn').onclick=chooseNext;
@@ -350,8 +353,10 @@ function bindTools(){
 function cloneField(value){return value==null?value:JSON.parse(JSON.stringify(value))}
 function historyChange(n,label,fields,values,after){const r=rec(n),before={};for(const field of fields)before[field]=cloneField(r[field]);const history=[...(Array.isArray(r.history)?r.history:[]),{label,time:new Date().toISOString(),fields,before}].slice(-30);records[n]={...r,...values,history,updated:new Date().toISOString()};persist();showTarget();toast(label);if(after)after()}
 function undoLastChange(n){const r=rec(n),history=Array.isArray(r.history)?[...r.history]:[],last=history.pop();if(!last){toast('Nothing to undo');return}if(!confirm(`Undo “${last.label}” for caisson ${n}?`))return;records[n]={...r,...last.before,history,updated:new Date().toISOString()};persist();showTarget();toast(`Undid: ${last.label}`)}
-function markPickup(n){const r=rec(n),g=gpsSnapshot();historyChange(n,'Picked up caisson',['pickupTime','pickupGPS','status','lat','lon'],{pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',lat:g?.lat??r.lat,lon:g?.lon??r.lon})}
-function markUnload(n){const r=rec(n),g=gpsSnapshot();historyChange(n,'Unloaded caisson',['unloadTime','unloadGPS','status','verified','lat','lon'],{unloadTime:new Date().toISOString(),unloadGPS:g,status:'Unloaded',verified:!!g,lat:g?.lat??r.lat,lon:g?.lon??r.lon},()=>{selected=null;chooseNext()})}
+function approveGps(action,g){if(!g)return confirm(`${action} without a GPS reading? Start GPS and wait for a lock for the best result.`);if(g.accuracy>15)return confirm(`GPS quality is ${g.quality} (±${Math.round(g.accuracy*3.28084)} ft). Continue with ${action}?`);return true}
+function saveBestGps(n){const g=gpsSnapshot();if(!g){toast('Start GPS and wait for a location lock');return}if(!approveGps('saving this location',g))return;historyChange(n,`Saved best GPS · ${g.quality} ±${Math.round(g.accuracy*3.28084)} ft`,['lat','lon','verified'],{lat:g.lat,lon:g.lon,verified:g.accuracy<=15})}
+function markPickup(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Pick Up',g))return;historyChange(n,'Picked up caisson',['pickupTime','pickupGPS','status','lat','lon'],{pickupTime:new Date().toISOString(),pickupGPS:g,status:'Picked up',lat:g?.lat??r.lat,lon:g?.lon??r.lon})}
+function markUnload(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Unload',g))return;historyChange(n,'Unloaded caisson',['unloadTime','unloadGPS','status','verified','lat','lon'],{unloadTime:new Date().toISOString(),unloadGPS:g,status:'Unloaded',verified:!!g&&g.accuracy<=15,lat:g?.lat??r.lat,lon:g?.lon??r.lon},()=>{selected=null;chooseNext()})}
 function chooseNext(){if(!lastPosition){selected=null;showTarget();toast('Start GPS first');return}const b=nearestUnfinished(lastPosition.coords.latitude,lastPosition.coords.longitude);nearest=b?.n??null;selected=nearest;renderPins();showTarget();if(selected)scrollToSpot(selected)}
 function nearestUnfinished(lat,lon){let best=null;for(const h of HOTSPOTS){const r=rec(h.caisson);if(r.unloadTime||num(r.lat)==null||num(r.lon)==null)continue;const d=haversine(lat,lon,+r.lat,+r.lon);if(!best||d<best.d)best={n:h.caisson,d}}return best}
 function haversine(a,b,c,d){const R=6371000,t=Math.PI/180,da=(c-a)*t,db=(d-b)*t,q=Math.sin(da/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(db/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
@@ -359,9 +364,9 @@ function solve3(A,b){A=A.map((r,i)=>[...r,b[i]]);for(let i=0;i<3;i++){let p=i;fo
 function regress(points,key){const M=[[0,0,0],[0,0,0],[0,0,0]],b=[0,0,0];for(const p of points){const v=[p.lon,p.lat,1],y=p[key];for(let i=0;i<3;i++){b[i]+=v[i]*y;for(let j=0;j<3;j++)M[i][j]+=v[i]*v[j]}}return solve3(M,b)}
 function fitTransform(){const pts=HOTSPOTS.map(h=>{const r=rec(h.caisson);return num(r.lat)!=null&&num(r.lon)!=null?{lat:+r.lat,lon:+r.lon,x:h.x,y:h.y}:null}).filter(Boolean);if(pts.length<3){transform=null;return}const ax=regress(pts,'x'),ay=regress(pts,'y');transform=ax&&ay?{ax,ay}:null}
 function project(lat,lon){return transform?{x:transform.ax[0]*lon+transform.ax[1]*lat+transform.ax[2],y:transform.ay[0]*lon+transform.ay[1]*lat+transform.ay[2]}:null}
-function startGPS(){stopGPS();$('gpsStatus').textContent='GPS searching…';const opts={enableHighAccuracy:true,maximumAge:0,timeout:12000};watchId=navigator.geolocation.watchPosition(updateGPS,geoError,opts);refreshTimer=setInterval(()=>navigator.geolocation.getCurrentPosition(updateGPS,()=>{},opts),5000);$('locate').textContent='Stop GPS';$('locate').onclick=stopGPS}
+function startGPS(){stopGPS();gpsSamples=[];bestPosition=null;$('gpsStatus').textContent='GPS searching for best lock…';$('accuracyStatus').textContent='Collecting readings…';const opts={enableHighAccuracy:true,maximumAge:0,timeout:15000};watchId=navigator.geolocation.watchPosition(updateGPS,geoError,opts);refreshTimer=setInterval(()=>navigator.geolocation.getCurrentPosition(updateGPS,()=>{},opts),4000);$('locate').textContent='Stop GPS';$('locate').onclick=stopGPS}
 function stopGPS(){if(watchId!=null)navigator.geolocation.clearWatch(watchId);watchId=null;if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;$('gpsStatus').textContent='GPS off';$('locate').textContent='Start GPS';$('locate').onclick=startGPS}
-function updateGPS(p){if(lastPosition&&p.timestamp<lastPosition.timestamp)return;lastPosition=p;lastGoodAt=Date.now();$('gpsStatus').textContent='GPS live';$('accuracyStatus').textContent=`Accuracy ±${Math.round(p.coords.accuracy*3.28084)} ft`;const b=nearestUnfinished(p.coords.latitude,p.coords.longitude);nearest=b?.n??null;if(selected==null)selected=nearest;renderPins();drawBlueDot();showTarget();if(autoCenter)centerOnGPS()}
+function updateGPS(p){if(!Number.isFinite(p.coords.accuracy)||p.coords.accuracy<=0)return;if(lastPosition&&p.timestamp<=lastPosition.timestamp)return;if(lastPosition){const seconds=Math.max(1,(p.timestamp-lastPosition.timestamp)/1000),jump=haversine(lastPosition.coords.latitude,lastPosition.coords.longitude,p.coords.latitude,p.coords.longitude);if(jump>Math.max(50,seconds*12)&&p.coords.accuracy>=lastPosition.coords.accuracy){$('gpsStatus').textContent='GPS jump ignored';return}}lastPosition=p;lastGoodAt=Date.now();gpsSamples.push(p);gpsSamples=gpsSamples.filter(x=>Date.now()-(x.timestamp||0)<20000).slice(-12);bestPosition=gpsSamples.reduce((best,x)=>!best||x.coords.accuracy<best.coords.accuracy?x:best,null);const best=gpsSnapshot(),age=Math.max(0,Math.round((Date.now()-new Date(best.time).getTime())/1000));$('gpsStatus').textContent=`GPS live · ${best.quality}`;$('accuracyStatus').textContent=`Best ±${Math.round(best.accuracy*3.28084)} ft · ${gpsSamples.length} reading${gpsSamples.length===1?'':'s'} · ${age}s old`;const b=nearestUnfinished(p.coords.latitude,p.coords.longitude);nearest=b?.n??null;if(selected==null)selected=nearest;renderPins();drawBlueDot();showTarget();if(autoCenter)centerOnGPS()}
 function drawBlueDot(){const p=lastPosition,q=p&&project(p.coords.latitude,p.coords.longitude),layer=$('gpsLayer');if(!q){layer.innerHTML='';return}const m=$('map'),probe=project(p.coords.latitude,p.coords.longitude+.00001),meters=haversine(p.coords.latitude,p.coords.longitude,p.coords.latitude,p.coords.longitude+.00001),pct=Math.max(.00001,Math.abs(probe.x-q.x)),pxPerMeter=(m.offsetWidth*pct/100)/meters,r=Math.max(30,p.coords.accuracy*pxPerMeter*2);layer.innerHTML=`<div class="accuracy" style="left:${q.x}%;top:${q.y}%;width:${r}px;height:${r}px"></div><div class="blue-dot" style="left:${q.x}%;top:${q.y}%"></div>`}
 function centerOnGPS(){if(!lastPosition)return;const q=project(lastPosition.coords.latitude,lastPosition.coords.longitude);if(!q)return;const s=$('mapShell'),m=$('map');s.scrollTo({left:m.offsetWidth*q.x/100-s.clientWidth/2,top:m.offsetHeight*q.y/100-s.clientHeight/2,behavior:'smooth'})}
 function geoError(e){$('gpsStatus').textContent=e.code===1?'Location permission denied':'GPS signal lost';if(e.code===1)toast('Allow Precise Location for Safari in iPhone Settings')}
