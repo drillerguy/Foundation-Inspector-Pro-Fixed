@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#083a73">
+<link rel="manifest" href="manifest.webmanifest">
+<title>FieldVerify Pro</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#15202b;background:#eef2f6}*{box-sizing:border-box}body{margin:0;overscroll-behavior:none}button,input,textarea,select{font:inherit}button{border:0;border-radius:12px;font-weight:900}.top{position:sticky;top:0;z-index:40;background:#083a73;color:#fff;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}.title{font-size:19px;font-weight:900}.gpsline{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:5px;font-size:12px}.badge{background:#ffffff22;border:1px solid #ffffff33;border-radius:999px;padding:4px 8px}.toolbar{display:grid;grid-template-columns:1fr auto auto;gap:7px;margin-top:7px}.toolbar input{min-width:0;border:0;border-radius:10px;padding:10px}.toolbar button{padding:10px 12px;background:#fff;color:#083a73}.layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;height:calc(100vh - 120px)}.map-shell{position:relative;overflow:auto;background:#616b75;-webkit-overflow-scrolling:touch}.map{position:relative;width:1800px;line-height:0;background:#fff}.map img{display:block;width:100%;height:auto}.pins,.gps-layer{position:absolute;inset:0;pointer-events:none}.pin{pointer-events:auto;position:absolute;width:20px;height:20px;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;background:#747e88;color:#fff;line-height:16px;text-align:center;font-size:7px;font-weight:900;box-shadow:0 1px 5px #0008}.pin.known{background:#16803d}.pin.picked{background:#7b3fc6}.pin.done{background:#16803d}.pin.ncr-open{background:#c32727}.pin.ncr-pending{background:#ff9f0a}.pin.ncr-cleared{background:#16803d}.pin.nearest{width:34px;height:34px;line-height:30px;font-size:11px;background:#ff9f0a;z-index:8}.pin.selected{outline:4px solid #fff9;z-index:9}.blue-dot{position:absolute;width:24px;height:24px;transform:translate(-50%,-50%);border-radius:50%;background:#0a84ff;border:4px solid #fff;box-shadow:0 1px 9px #0009;z-index:15}.accuracy{position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:#0a84ff20;border:1px solid #0a84ff80;z-index:12}.panel{background:#fff;border-left:1px solid #cbd3dc;padding:10px;overflow:auto}.card{border:1px solid #d7dee7;border-radius:14px;padding:12px;margin-bottom:10px}.card h2{margin:0 0 7px;font-size:22px}.statusrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}.pill{border-radius:999px;background:#edf1f5;padding:5px 8px;font-size:12px;font-weight:900}.pill.blue{background:#dceeff;color:#0058a8}.pill.green{background:#dff4e5;color:#12642f}.big-actions{display:grid;gap:9px}.action{width:100%;min-height:58px;font-size:20px;color:#fff}.pickup{background:#7b3fc6}.unload{background:#16803d}.photo{background:#0b67c2}.next{background:#e7edf4;color:#16202a}.tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tools button{padding:12px;background:#e7edf4;color:#16202a}.label{font-size:12px;color:#66717c;margin:9px 0 4px;display:block}.field{width:100%;border:1px solid #c8d0d9;border-radius:10px;padding:10px}.tiny{font-size:12px;color:#687480}.notice{background:#fff4cc;border:1px solid #f0cc55;border-radius:10px;padding:9px;font-size:12px}
+.ncr-card{border:2px solid #d49300;background:#fff8df;border-radius:12px;padding:10px;margin:8px 0}
+.ncr-card.closed{border-color:#16803d;background:#eaf8ee}
+.ncr-title{font-size:16px;font-weight:900;display:flex;justify-content:space-between;gap:8px}
+.ncr-status{border-radius:999px;padding:3px 8px;font-size:11px;background:#ffe4a3}
+.ncr-card.closed .ncr-status{background:#ccebd5;color:#12642f}
+.share-log{background:#b42318!important;color:#fff!important;grid-column:1/-1;font-size:18px;min-height:54px}
+.ncr-import{background:#7b3fc6!important;color:#fff!important}.ncr-manual{margin-top:8px;padding-top:8px;border-top:1px dashed #caa43c}.empty{text-align:center;color:#6d7883;padding:25px 8px}.hidden{display:none!important}.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:100;background:#111;color:#fff;padding:11px 15px;border-radius:11px;font-weight:800;box-shadow:0 4px 20px #0007}.legend{position:fixed;left:9px;bottom:9px;z-index:20;background:#fffe;padding:7px 9px;border-radius:10px;font-size:11px;box-shadow:0 2px 10px #0003}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:3px}@media(max-width:760px){.top{position:relative}.layout{display:block;height:auto}.map-shell{height:57vh}.map{width:1500px}.panel{border-left:0;border-top:1px solid #ccd4dd;min-height:43vh;padding-bottom:calc(18px + env(safe-area-inset-bottom))}.legend{bottom:44vh}.action{min-height:62px}}
+</style>
+<style>
+.map-wrap{position:relative;min-width:0;min-height:0;overflow:hidden;background:#616b75}.map-shell{width:100%;height:100%;overscroll-behavior:contain;touch-action:pan-x pan-y}
+.map-controls{position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:25;width:max-content;display:flex;flex-direction:column;gap:6px;padding:6px;background:#fffffff2;border-radius:14px;box-shadow:0 2px 12px #0005;line-height:normal}
+.map-controls button{min-width:42px;min-height:42px;padding:7px 10px;background:#083a73;color:#fff;border-radius:9px;font-size:18px;touch-action:manipulation}
+.map-controls button.map-reset{font-size:11px;min-width:48px}.map-controls button.map-center{font-size:21px}@media(max-width:760px){.map-wrap{height:57vh}.map-shell{height:100%}.legend{max-width:calc(100% - 74px)}}
+.map .legend{position:absolute;left:10px;bottom:10px;z-index:20;max-width:520px;line-height:1.35}
+.pin{transform:translate(-50%,-50%) scale(var(--pin-scale,1));transform-origin:center}
+.pin.type-tieback{border-radius:4px}.pin.type-footing{border-radius:2px}.pin.type-column{border-radius:50% 50% 4px 4px}.pin.type-ers{border-style:double;border-width:4px}.pin.type-custom{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);border-radius:0}.item-setup{display:grid;grid-template-columns:1fr 1fr;gap:8px}.item-setup button{grid-column:1/-1}@media(max-width:420px){.item-setup{grid-template-columns:1fr}}
+#itemFilter{color:#fff}#itemFilter option{color:#111}
+.toolbar{grid-template-columns:minmax(0,1fr) auto auto auto}.project-list{display:grid;gap:8px}.project-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid #d7dee7;border-radius:12px;padding:10px}.project-row button{padding:10px;background:#083a73;color:#fff}.module-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.module-grid button{padding:14px;background:#e7edf4;color:#16202a}.project-form{display:grid;gap:8px}@media(max-width:420px){.toolbar{grid-template-columns:minmax(0,1fr) auto auto}.toolbar #projectsBtn{grid-column:1/-1}.module-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.pin{width:32px;height:32px;line-height:27px;font-size:11px;border-width:3px;box-shadow:0 2px 7px #0009}.pin.nearest{width:46px;height:46px;line-height:40px;font-size:15px}.pin.selected{outline-width:5px}}
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:26px;color:#083a73}.metric span{font-size:12px;color:#596775}.warning-list{margin:8px 0;padding-left:20px}.warning-list li{margin:5px 0}.dashboard-action{width:100%;padding:13px;margin-top:8px;background:#083a73;color:#fff}.dashboard-print{background:#b42318}.dashboard-back{background:#e7edf4;color:#16202a}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-grid label{font-size:12px;font-weight:800;color:#53606c}.check-grid select{margin-top:4px}@media(max-width:420px){.check-grid{grid-template-columns:1fr}}
+.pin.field-work:not(.ncr-open):not(.ncr-pending){background:#7b3fc6!important}
+.share-ready{position:fixed;inset:0;z-index:100;background:#0009;display:grid;place-items:center;padding:20px}.share-ready.hidden{display:none}.share-ready-box{width:min(440px,100%);background:#fff;border-radius:18px;padding:20px;box-shadow:0 12px 40px #0008}.share-ready-box h2{margin:0 0 8px}.share-ready-box button{width:100%;padding:16px;margin-top:10px;font-size:18px}.share-now{background:#16803d;color:#fff}.share-cancel{background:#e7edf4;color:#16202a}
+</style>
+</head>
+<body>
+<header class="top"><div class="title">FieldVerify Pro <span style="font-size:11px;opacity:.75">v7.3 stable</span></div><div class="gpsline"><span id="projectStatus" class="badge">Project loading…</span><span id="gpsStatus" class="badge">GPS off</span><span id="accuracyStatus" class="badge">Accuracy —</span><span id="targetStatus" class="badge">No target</span><span id="networkStatus" class="badge">Checking connection…</span><select id="itemFilter" class="badge" aria-label="Filter item type"><option value="">All item types</option><option>Caisson</option><option>ERS</option><option>Tieback</option><option>Footing</option><option>Column</option><option>Custom</option></select></div><div class="toolbar"><input id="search" type="text" autocapitalize="characters" placeholder="Item number or ID"><button id="find">Find</button><button id="locate">Start GPS</button><button id="projectsBtn">Projects</button></div></header>
+<div class="layout"><section class="map-wrap"><div class="map-controls" aria-label="Stationary map controls"><button id="zoomIn" aria-label="Zoom in">&#43;</button><button id="mapCenter" class="map-center" aria-label="Center map">&#9678;</button><button id="zoomReset" class="map-reset">Fit</button><button id="zoomOut" aria-label="Zoom out">&minus;</button></div><div class="map-shell" id="mapShell"><div class="map" id="map"><img id="planImage" src="caisson-plan.png" alt="Foundation inspection drawing"><div class="pins" id="pins"></div><div class="gps-layer" id="gpsLayer"></div><div class="legend"><span class="dot" style="background:#0a84ff"></span>You &nbsp;<span class="dot" style="background:#c32727"></span>NCR Open &nbsp;<span class="dot" style="background:#ff9f0a"></span>NCR Pending / Next &nbsp;<span class="dot" style="background:#7b3fc6"></span>Started &nbsp;<span class="dot" style="background:#16803d"></span>Cleared / Completed</div></div></div></section><aside class="panel" id="panel"><div class="empty">Loading inspection drawing…</div></aside></div>
+<input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" multiple>
+<input id="libraryInput" class="hidden" type="file" accept="image/*" multiple>
+<input id="restoreInput" class="hidden" type="file" accept="application/json,.json,application/pdf,.pdf">
+<input id="ncrExcelInput" class="hidden" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+<input id="ncrPdfInput" class="hidden" type="file" accept="application/pdf,.pdf">
+<input id="drawingInput" class="hidden" type="file" accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,image/gif">
+<div id="toast" class="toast hidden"></div>
+<div id="shareReady" class="share-ready hidden"><div class="share-ready-box"><h2>Office Report Ready</h2><p id="shareReadyText">Your PDF is ready to send.</p><button id="shareNowBtn" class="share-now">SHARE PDF NOW</button><button id="shareCancelBtn" class="share-cancel">Close</button></div></div>
+<script src="caisson-data.js"></script>
+<script src="pdf-lib.min.js"></script>
+<script>
+const OLD_KEY='ordCaissonRecords',NEW_KEY='foundationInspectorRecords',NCR_KEY='foundationInspectorNcrData';
+const PROJECTS_KEY='fieldVerifyProjects',ACTIVE_PROJECT_KEY='fieldVerifyActiveProject';
+const ITEM_TYPES=['Caisson','ERS','Tieback','Footing','Column','Custom'];
+let HOTSPOTS=[],records={},ncrRows=[],projects=[],activeProjectId='legacy',selected=null,nearest=null,watchId=null,refreshTimer=null,transform=null,lastPosition=null,bestPosition=null,gpsSamples=[],lastGoodAt=0,autoCenter=true,pendingNcrPdfId=null,pendingOfficeFile=null;
+let mapBaseWidth=window.matchMedia('(max-width:760px)').matches?1500:1800,mapWidth=mapBaseWidth,pinchStart=null,pinchFrame=null,pinchPending=null;
+const $=id=>document.getElementById(id),num=v=>{const n=Number(v);return Number.isFinite(n)?n:null},esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
+function defaultRec(){return{itemType:'Caisson',itemLabel:'',status:'No information',verified:false,notes:'',lat:null,lon:null,condition:'',updated:'',photos:[],pickupTime:null,unloadTime:null,pickupGPS:null,unloadGPS:null}}
+function rec(n){return{...defaultRec(),...(records[n]||{})}}
+function itemType(r){return ITEM_TYPES.includes(r?.itemType)?r.itemType:'Caisson'}
+function itemName(n,r=rec(n)){return String(r.itemLabel||'').trim()||`${itemType(r)} ${n}`}
+function pinLabel(n,r=rec(n)){const custom=String(r.itemLabel||'').trim();return custom?(custom.length>6?custom.slice(0,5)+'…':custom):String(n)}
+function currentFilter(){return $('itemFilter')?.value||''}
+function projectRecordsKey(id=activeProjectId){return`fieldVerifyProjectRecords:${id}`}
+function projectNcrKey(id=activeProjectId){return`fieldVerifyProjectNcr:${id}`}
+function activeProject(){return projects.find(p=>p.id===activeProjectId)||projects[0]}
+function saveProjects(){localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));localStorage.setItem(ACTIVE_PROJECT_KEY,activeProjectId);const p=activeProject();if($('projectStatus'))$('projectStatus').textContent=p?.name||'No project'}
+function initializeProjects(){try{projects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||'[]')}catch{projects=[]}if(!Array.isArray(projects)||!projects.length){projects=[{id:'legacy',name:'Existing Foundation Project',number:'',address:'',client:'',drawingRevision:'',created:new Date().toISOString()}]}activeProjectId=localStorage.getItem(ACTIVE_PROJECT_KEY)||projects[0].id;if(!projects.some(p=>p.id===activeProjectId))activeProjectId=projects[0].id;saveProjects()}
+function loadRecords(){
+ try{
+   const saved=localStorage.getItem(projectRecordsKey());
+   records=saved?JSON.parse(saved):(activeProjectId==='legacy'?{...JSON.parse(localStorage.getItem(OLD_KEY)||'{}'),...JSON.parse(localStorage.getItem(NEW_KEY)||'{}')}:{ });
+   const savedNcr=localStorage.getItem(projectNcrKey());ncrRows=savedNcr?JSON.parse(savedNcr):(activeProjectId==='legacy'?JSON.parse(localStorage.getItem(NCR_KEY)||'[]'):[]);
+   if(!Array.isArray(ncrRows))ncrRows=[];
+ }catch{records={};ncrRows=[]}
+ persist()
+}
+function persist(){localStorage.setItem(projectRecordsKey(),JSON.stringify(records));if(activeProjectId==='legacy')localStorage.setItem(NEW_KEY,JSON.stringify(records));renderPins();fitTransform()}
+function persistNcr(){localStorage.setItem(projectNcrKey(),JSON.stringify(ncrRows));if(activeProjectId==='legacy')localStorage.setItem(NCR_KEY,JSON.stringify(ncrRows))}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.add('hidden'),2400)}
+async function loadHotspots(){
+  $('panel').innerHTML='<div class="empty">Loading drawing and inspection locations…</div>';
+  const data=window.FOUNDATION_CAISSON_DATA;
+  if(!data||!Array.isArray(data.HOTSPOTS)||!data.STARTING)throw Error('Local caisson data is missing');
+  HOTSPOTS=data.HOTSPOTS;
+  const starting=data.STARTING;
+
+  if(!Array.isArray(HOTSPOTS)||HOTSPOTS.length<100){
+    throw Error('The caisson location list did not load correctly');
+  }
+
+  if(activeProjectId==='legacy')for(const [number,value] of Object.entries(starting)){
+    if(!records[number])records[number]=value;
+  }
+  localStorage.setItem(NEW_KEY,JSON.stringify(records));
+
+  renderPins();
+  fitTransform();
+  showTarget();
+  bindTools();
+  toast(`${HOTSPOTS.length} inspection items loaded`);
+}
+function stateClass(r,n){
+ let c=`pin type-${itemType(r).toLowerCase()}`;
+ if(num(r.lat)!=null&&num(r.lon)!=null)c+=' known';
+ if(r.pickupTime||r.unloadTime||r.updated||(Array.isArray(r.photos)&&r.photos.length))c+=' field-work';
+ if((r.pickupTime||(Array.isArray(r.photos)&&r.photos.length))&&!r.unloadTime)c+=' picked';
+ if(r.unloadTime)c+=' done';
+
+ const ncrState=effectiveNcrState(n);
+ if(ncrState==='open')c+=' ncr-open';
+ else if(ncrState==='pending')c+=' ncr-pending';
+ else if(ncrState==='cleared')c+=' ncr-cleared';
+
+ if(n===nearest)c+=' nearest';
+ if(n===selected)c+=' selected';
+ return c
+}
+function renderPins(){if(!HOTSPOTS.length)return;const filter=currentFilter();$('pins').innerHTML=HOTSPOTS.filter(h=>!filter||itemType(rec(h.caisson))===filter).map(h=>{const r=rec(h.caisson);return`<button class="${stateClass(r,h.caisson)}" data-n="${h.caisson}" aria-label="${esc(itemName(h.caisson,r))}" style="left:${h.x}%;top:${h.y}%">${esc(pinLabel(h.caisson,r))}</button>`}).join('');document.querySelectorAll('.pin').forEach(p=>p.onclick=()=>{selected=+p.dataset.n;showTarget();scrollToSpot(selected)})}
+function scrollToSpot(n){const h=HOTSPOTS.find(x=>x.caisson===n);if(!h)return;const s=$('mapShell'),m=$('map');s.scrollTo({left:m.offsetWidth*h.x/100-s.clientWidth/2,top:m.offsetHeight*h.y/100-s.clientHeight/2,behavior:'smooth'})}
+function setMapWidth(next,anchorX=$('mapShell').clientWidth/2,anchorY=$('mapShell').clientHeight/2){
+ const shell=$('mapShell'),map=$('map'),old=mapWidth;
+ next=Math.max(700,Math.min(3600,Math.round(next)));
+ const contentX=shell.scrollLeft+anchorX,contentY=shell.scrollTop+anchorY,ratio=next/old;
+ mapWidth=next;map.style.width=`${mapWidth}px`;
+ updatePinScale();
+ shell.scrollLeft=contentX*ratio-anchorX;shell.scrollTop=contentY*ratio-anchorY;
+ drawBlueDot()
+}
+function setMapWidthAt(next,mapX,mapY,anchorX,anchorY){
+ const shell=$('mapShell'),map=$('map');next=Math.max(700,Math.min(3600,Math.round(next)));
+ mapWidth=next;map.style.width=`${mapWidth}px`;
+ updatePinScale();
+ shell.scrollLeft=map.offsetWidth*mapX-anchorX;shell.scrollTop=map.offsetHeight*mapY-anchorY;
+ drawBlueDot()
+}
+function resetMapZoom(){setMapWidth(mapBaseWidth)}
+function updatePinScale(){const ratio=mapWidth/mapBaseWidth,scale=Math.min(1.7,Math.max(1,1+(ratio-1)*.55));$('map').style.setProperty('--pin-scale',scale.toFixed(3))}
+function touchDistance(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)}
+function touchCenter(t,shell){const r=shell.getBoundingClientRect();return{x:(t[0].clientX+t[1].clientX)/2-r.left,y:(t[0].clientY+t[1].clientY)/2-r.top}}
+function installMapZoom(){
+ const shell=$('mapShell');$('map').style.width=`${mapWidth}px`;updatePinScale();
+ $('zoomOut').onclick=()=>setMapWidth(mapWidth/1.25);$('zoomIn').onclick=()=>setMapWidth(mapWidth*1.25);$('zoomReset').onclick=resetMapZoom;
+ $('mapCenter').onclick=()=>{autoCenter=true;if(lastPosition&&transform)centerOnGPS();else if(targetNumber())scrollToSpot(targetNumber());else shell.scrollTo({left:0,top:0,behavior:'smooth'})};
+ shell.addEventListener('touchstart',e=>{if(e.touches.length!==2)return;autoCenter=false;const center=touchCenter(e.touches,shell),map=$('map');pinchStart={distance:touchDistance(e.touches),width:mapWidth,mapX:(shell.scrollLeft+center.x)/map.offsetWidth,mapY:(shell.scrollTop+center.y)/map.offsetHeight}},{passive:true});
+ shell.addEventListener('touchmove',e=>{if(e.touches.length!==2||!pinchStart)return;e.preventDefault();const center=touchCenter(e.touches,shell);pinchPending={width:pinchStart.width*touchDistance(e.touches)/pinchStart.distance,center};if(!pinchFrame)pinchFrame=requestAnimationFrame(()=>{const p=pinchPending;pinchFrame=null;if(p&&pinchStart)setMapWidthAt(p.width,pinchStart.mapX,pinchStart.mapY,p.center.x,p.center.y)})},{passive:false});
+ shell.addEventListener('touchend',e=>{if(e.touches.length<2){pinchStart=null;pinchPending=null;if(pinchFrame){cancelAnimationFrame(pinchFrame);pinchFrame=null}}},{passive:true});
+}
+function targetNumber(){return selected??nearest}
+function gpsQuality(accuracy){return accuracy<=3?'Excellent':accuracy<=8?'Good':accuracy<=15?'Fair':'Poor'}
+function gpsSnapshot(){const p=bestPosition&&Date.now()-(bestPosition.timestamp||0)<30000?bestPosition:lastPosition;if(!p)return null;return{lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,time:new Date(p.timestamp||Date.now()).toISOString(),quality:gpsQuality(p.coords.accuracy),sampleCount:gpsSamples.length}}
+function distanceTo(n){const r=rec(n);return lastPosition&&num(r.lat)!=null&&num(r.lon)!=null?Math.round(haversine(lastPosition.coords.latitude,lastPosition.coords.longitude,+r.lat,+r.lon)*3.28084):null}
+
+function normalizeHeader(s){return String(s??'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+function findField(row,names){
+ const keys=Object.keys(row||{});
+ for(const name of names){
+   const target=normalizeHeader(name);
+   const exact=keys.find(k=>normalizeHeader(k)===target);
+   if(exact!=null)return row[exact];
+ }
+ for(const name of names){
+   const target=normalizeHeader(name);
+   const loose=keys.find(k=>normalizeHeader(k).includes(target)||target.includes(normalizeHeader(k)));
+   if(loose!=null)return row[loose];
+ }
+ return ''
+}
+function numbersIn(value){
+ const text=String(value??'');
+ const nums=new Set();
+ for(const match of text.matchAll(/\b\d{1,4}\b/g))nums.add(Number(match[0]));
+ return [...nums]
+}
+function ncrId(row,index){
+ return String(findField(row,['NCR Number','NCR #','NCR','ACC Number','ACC #'])||`NCR-${index+1}`).trim()
+}
+function ncrsForCaisson(n){
+ return ncrRows.map((row,index)=>({row,index,id:ncrId(row,index)}))
+   .filter(item=>numbersIn(findField(item.row,['Shafts Affected','Caissons Affected','Caisson','Shaft Number','Affected Shafts'])).includes(Number(n)))
+}
+function statusText(row){
+ return String(findField(row,['NCR Status','Current Status','Status','RFI Status'])||'Status not listed').trim()
+}
+function isClosedNcr(row){
+ return /closed|cleared|accepted|complete|resolved/i.test(statusText(row))
+}
+
+function officialNcrState(n){
+ const list=ncrsForCaisson(n);
+ if(!list.length)return 'none';
+
+ let hasPending=false;
+ for(const {row} of list){
+   const s=statusText(row);
+   if(/open|not closed|repair|required|corrective|rework|active/i.test(s))return 'open';
+   if(/pending|review|waiting|rfi|approval|submitted|corrected/i.test(s))hasPending=true;
+ }
+ if(hasPending)return 'pending';
+ if(list.every(({row})=>isClosedNcr(row)))return 'cleared';
+ return 'open'
+}
+function effectiveNcrState(n){
+ const manual=String(rec(n).ncrManualStatus||'').toLowerCase();
+ if(manual==='open')return 'open';
+ if(manual==='pending'||manual==='corrected-waiting')return 'pending';
+ if(manual==='cleared')return 'cleared';
+ return officialNcrState(n)
+}
+function updateManualNcrStatus(n,value){
+ const r=rec(n);
+ records[n]={...r,ncrManualStatus:value,updated:new Date().toISOString()};
+ persist();
+ showTarget();
+ toast(value?`NCR status set to ${value.replaceAll('-',' ')}`:'Using spreadsheet NCR status')
+}
+function ncrStateLabel(n){
+ const s=effectiveNcrState(n);
+ return s==='open'?'OPEN':s==='pending'?'PENDING / WAITING':s==='cleared'?'CLEARED':'NO NCR'
+}
+
+function ncrSummaryHtml(n){
+ const list=ncrsForCaisson(n);
+ const manual=rec(n).ncrManualStatus||'';
+ const selector=`<div class="ncr-manual">
+   <label class="label">NCR STATUS FOR THIS ITEM</label>
+   <select class="field" onchange="updateManualNcrStatus(${n},this.value)">
+     <option value="" ${manual===''?'selected':''}>Use imported spreadsheet status</option>
+     <option value="open" ${manual==='open'?'selected':''}>Open</option>
+     <option value="pending" ${manual==='pending'?'selected':''}>Pending review / RFI</option>
+     <option value="corrected-waiting" ${manual==='corrected-waiting'?'selected':''}>Corrected — waiting for acceptance</option>
+     <option value="cleared" ${manual==='cleared'?'selected':''}>Cleared</option>
+   </select>
+   <div class="tiny" style="margin-top:5px">Current map color: <b>${ncrStateLabel(n)}</b></div>
+ </div>`;
+
+ if(!ncrRows.length)return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="notice">No NCR spreadsheet has been imported. Tap <b>Import NCR Excel File</b> below when you receive the current register.</div>${selector}</div>`;
+
+ if(!list.length)return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="tiny">No imported NCR lists ${esc(itemName(n,rec(n)))}.</div>${selector}</div>`;
+
+ return `<div class="card"><h2 style="font-size:17px">NCR Information — ${list.length} Found</h2>
+ <div class="statusrow"><span class="pill ${effectiveNcrState(n)==='cleared'?'green':''}">Map status: ${ncrStateLabel(n)}</span></div>
+ ${list.map(({row,index,id})=>{
+   const issue=findField(row,['Description','NCR Description','Issue Description','Issue']);
+   const correction=findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required']);
+   const rfi=findField(row,['RFI Status','RFI','RFI Number']);
+   const ball=findField(row,['Ball in Court','Responsible Party','Owner']);
+   const pdfKey=`ncrpdf:${id}`;
+   const hasPdf=localStorage.getItem(pdfKey)==='yes';
+   return `<div class="ncr-card ${isClosedNcr(row)?'closed':''}">
+     <div class="ncr-title"><span>${esc(id)}</span><span class="ncr-status">${esc(statusText(row))}</span></div>
+     ${issue?`<div class="label">Issue</div><div>${esc(issue)}</div>`:''}
+     ${correction?`<div class="label">Correction required</div><div>${esc(correction)}</div>`:''}
+     ${rfi?`<div class="label">RFI</div><div>${esc(rfi)}</div>`:''}
+     ${ball?`<div class="label">Ball in court</div><div>${esc(ball)}</div>`:''}
+     <div class="row" style="margin-top:8px">
+       <button class="next" style="padding:10px" onclick="attachNcrPdf('${esc(id)}')">${hasPdf?'Replace NCR PDF':'Attach NCR PDF'}</button>
+       <button class="next" style="padding:10px" onclick="openNcrPdf('${esc(id)}')" ${hasPdf?'':'disabled'}>Open NCR PDF</button>
+     </div>
+   </div>`;
+ }).join('')}
+ ${selector}</div>`
+}
+function inspectionFields(r){const sets={Caisson:[['rebar','Rebar'],['bottom','Bottom clean'],['water','Water controlled'],['dimensions','Dimensions'],['concrete','Concrete ready']],ERS:[['alignment','Alignment'],['bracing','Bracing'],['connections','Connections'],['excavation','Excavation safety'],['drainage','Drainage']],Tieback:[['location','Location'],['angle','Angle'],['bondLength','Bond length'],['proofTest','Proof test'],['lockoff','Lock-off']],Footing:[['subgrade','Subgrade'],['dimensions','Dimensions'],['rebar','Rebar'],['embeds','Embeds'],['concrete','Concrete ready']],Column:[['location','Location'],['plumb','Plumb'],['rebar','Rebar'],['forms','Forms'],['embeds','Embeds']],Custom:[['condition','Condition'],['dimensions','Dimensions'],['installation','Installation'],['safety','Safety'],['ready','Ready for next step']]};return sets[itemType(r)]||sets.Custom}
+function inspectionReportHtml(r){const c=r.inspection||{};return`<table>${inspectionFields(r).map(([k,l])=>`<tr><th>${l}</th><td>${esc(c[k]||'Not checked')}</td></tr>`).join('')}<tr><th>Overall</th><td><b>${esc(c.overall||'Not set')}</b></td></tr></table>`}
+function inspectionCard(r){const c=r.inspection||{},options=k=>`<option value="">Not checked</option><option value="Pass" ${c[k]==='Pass'?'selected':''}>Pass</option><option value="Hold" ${c[k]==='Hold'?'selected':''}>Hold</option><option value="N/A" ${c[k]==='N/A'?'selected':''}>N/A</option>`;return`<div class="card"><h2 style="font-size:17px">${esc(itemType(r))} Inspection Checklist</h2><div class="check-grid">${inspectionFields(r).map(([k,l])=>`<label>${l}<select id="inspect-${k}" class="field">${options(k)}</select></label>`).join('')}</div><label class="label">OVERALL INSPECTION STATUS</label><select id="inspect-overall" class="field"><option value="" ${!c.overall?'selected':''}>Not set</option><option value="PASS" ${c.overall==='PASS'?'selected':''}>PASS</option><option value="HOLD" ${c.overall==='HOLD'?'selected':''}>HOLD</option></select><button id="saveInspection" class="action next" style="min-height:44px;font-size:15px;margin-top:8px">SAVE INSPECTION</button></div>`}
+function itemSetupCard(n,r){return`<div class="card"><h2 style="font-size:17px">Item Type and ID</h2><div class="item-setup"><label class="tiny">TYPE<select id="itemType" class="field">${ITEM_TYPES.map(t=>`<option ${itemType(r)===t?'selected':''}>${t}</option>`).join('')}</select></label><label class="tiny">CUSTOM ID / NAME<input id="itemLabel" class="field" value="${esc(r.itemLabel||'')}" placeholder="Example: T-12 or C5"></label><button id="saveItemSetup" class="next" style="padding:11px">Save Item Setup</button></div></div>`}
+function correctionCard(r){const history=Array.isArray(r.history)?r.history:[],last=history.at(-1);return`<div class="card"><h2 style="font-size:17px">Correct a Mistake</h2><div class="tools"><button id="undoAction" ${last?'':'disabled'}>Undo Last Action</button><button id="clearGps" ${num(r.lat)==null&&num(r.lon)==null?'disabled':''}>Clear Saved GPS</button><button id="resetInspection" ${r.inspection?'':'disabled'}>Reset Inspection</button></div><div class="tiny" style="margin-top:8px">${last?`Last action: ${esc(last.label)} · ${new Date(last.time).toLocaleString()}`:'No reversible changes recorded for this item yet.'}</div>${history.length?`<details style="margin-top:8px"><summary class="tiny">Correction history (${history.length})</summary><ul class="warning-list tiny">${history.slice(-5).reverse().map(h=>`<li>${esc(h.label)} — ${new Date(h.time).toLocaleString()}</li>`).join('')}</ul></details>`:''}</div>`}
+function showTarget(){
+ const n=targetNumber();
+ $('targetStatus').textContent=n?itemName(n,rec(n)):'No target';
+ if(!n){
+   $('panel').innerHTML=`<div class="card"><h2>Ready to work</h2><div class="notice">Start GPS or search for an item number or ID.</div></div>${toolCard()}`;
+   bindTools();
+   return
+ }
+ const r=rec(n),d=distanceTo(n),stage=r.unloadTime?'Completed':r.pickupTime?'Started':(r.photos||[]).length?'Photo logged':r.updated?'Restored work':r.status&&r.status!=='No information'?r.status:'Ready';
+ $('panel').innerHTML=`<div class="card"><h2>${esc(itemName(n,r))}</h2>
+ <div class="statusrow"><span class="pill ${r.unloadTime?'green':''}">${stage}</span>${d!=null?`<span class="pill blue">${d} ft away</span>`:''}</div>
+ <div class="big-actions">
+  <button id="pickupBtn" class="action pickup" aria-label="Start work and log item GPS">START WORK / LOG GPS</button>
+  <button id="unloadBtn" class="action unload">COMPLETE / LOG GPS</button>
+  <button id="saveGpsBtn" class="action photo">SAVE BEST GPS</button>
+  <button id="photoBtn" class="action photo">TAKE PHOTO</button>
+  <button id="libraryBtn" class="action photo">ADD EXISTING PHOTOS</button>
+  <button id="nextBtn" class="action next">NEXT ITEM</button>
+ </div>
+ <div class="tiny" style="margin-top:7px">Start and Complete save the best latitude/longitude reading and action time.</div>
+ <label class="label">Field Notes</label>
+ <textarea id="notes" class="field" rows="4">${esc(r.notes)}</textarea>
+ <button id="saveNotes" class="action next" style="min-height:42px;font-size:15px;margin-top:7px">Save Notes</button>
+ <div class="notice" style="margin-top:10px"><b>Saved Record Details</b><br>Status: ${esc(r.status||stage)}<br>Updated: ${r.updated?new Date(r.updated).toLocaleString():'—'}<br>Photos: ${(r.photos||[]).length}<br>Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}<br>Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}<br>Saved GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'—'}</div>
+ </div>
+ ${itemSetupCard(n,r)}
+ ${inspectionCard(r)}
+ ${correctionCard(r)}
+ ${ncrSummaryHtml(n)}
+ <div class="card"><h2 style="font-size:17px">Photos</h2><div id="photoPreview" class="photo-grid"></div><div class="tiny" id="photoCount">Loading photos…</div></div>
+ ${toolCard()}`;
+ $('pickupBtn').onclick=()=>markPickup(n);
+ $('unloadBtn').onclick=()=>markUnload(n);
+ $('saveGpsBtn').onclick=()=>saveBestGps(n);
+ $('photoBtn').onclick=()=>{$('cameraInput').dataset.caisson=n;$('cameraInput').click()};
+ $('libraryBtn').onclick=()=>{$('libraryInput').dataset.caisson=n;$('libraryInput').click()};
+ $('nextBtn').onclick=chooseNext;
+ $('saveNotes').onclick=()=>historyChange(n,'Updated field notes',['notes'],{notes:$('notes').value});
+ $('saveItemSetup').onclick=()=>historyChange(n,'Updated item type / ID',['itemType','itemLabel'],{itemType:$('itemType').value,itemLabel:$('itemLabel').value.trim()});
+ $('saveInspection').onclick=()=>{const inspection={};for(const [k] of inspectionFields(r))inspection[k]=$(`inspect-${k}`).value;inspection.overall=$('inspect-overall').value;historyChange(n,`Updated inspection: ${inspection.overall||'not set'}`,['inspection'],{inspection})};
+ $('undoAction').onclick=()=>undoLastChange(n);
+ $('clearGps').onclick=()=>{if(confirm(`Clear the saved GPS coordinates for ${itemName(n,rec(n))}?`))historyChange(n,'Cleared saved GPS',['lat','lon','verified'],{lat:null,lon:null,verified:false})};
+ $('resetInspection').onclick=()=>{if(confirm(`Reset the inspection checklist for ${itemName(n,rec(n))}?`))historyChange(n,'Reset inspection checklist',['inspection'],{inspection:null})};
+ bindTools();
+ showPhotoPreview(n)
+}
+function localDay(value){if(!value)return'';const d=new Date(value),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function todayKey(){return localDay(new Date())}
+function dailyRecords(){
+ const day=todayKey();
+ return Object.entries(records).map(([n,r])=>({n:+n,r:rec(n)})).filter(({r})=>localDay(r.pickupTime)===day||localDay(r.unloadTime)===day)
+}
+function activeRecords(){return Object.entries(records).map(([n])=>({n:+n,r:rec(n)})).filter(({r})=>r.pickupTime&&!r.unloadTime).sort((a,b)=>new Date(b.r.pickupTime)-new Date(a.r.pickupTime))}
+function dashboardWarnings(items){
+ const warnings=[];
+ for(const {n,r} of items){
+  const missing=[];if(num(r.lat)==null||num(r.lon)==null)missing.push('GPS');if(!String(r.notes||'').trim())missing.push('notes');if(!(r.photos||[]).length)missing.push('photos');if(!r.inspection?.overall)missing.push('inspection status');
+  if(missing.length)warnings.push(`${itemName(n,r)}: missing ${missing.join(', ')}`)
+ }
+ return warnings
+}
+function openDashboard(){
+ const daily=dailyRecords(),active=activeRecords(),picked=daily.filter(({r})=>localDay(r.pickupTime)===todayKey()).length,unloaded=daily.filter(({r})=>localDay(r.unloadTime)===todayKey()).length;
+ const warnings=dashboardWarnings(daily),ncrCounts={open:0,pending:0,cleared:0};
+ for(const h of HOTSPOTS){const s=effectiveNcrState(h.caisson);if(ncrCounts[s]!=null)ncrCounts[s]++}
+ $('targetStatus').textContent='Daily Dashboard';
+ $('panel').innerHTML=`<div class="card"><h2>Today's Field Dashboard</h2><div class="tiny">${new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+ <div class="dashboard-grid"><div class="metric"><b>${picked}</b><span>Started today</span></div><div class="metric"><b>${unloaded}</b><span>Completed today</span></div><div class="metric"><b>${active.length}</b><span>Still active</span></div><div class="metric"><b>${daily.length}</b><span>Worked today</span></div><div class="metric"><b>${ncrCounts.open}</b><span>Open NCR</span></div><div class="metric"><b>${ncrCounts.pending}</b><span>Pending NCR</span></div></div>
+ <button id="dailyReportBtn" class="dashboard-action dashboard-print">MAKE DAILY SHIFT REPORT / PDF</button>
+ ${active.length?`<button id="resumeBtn" class="dashboard-action">RESUME ${esc(itemName(active[0].n,active[0].r))}</button>`:'<div class="notice" style="margin-top:8px">No started items are waiting to be completed.</div>'}
+ <button id="dashboardBack" class="dashboard-action dashboard-back">Back to Map</button></div>
+  <div class="card"><h2 style="font-size:17px">Data Check</h2>${warnings.length?`<ul class="warning-list">${warnings.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:"<div class=\"pill green\">Today's records have GPS, notes, photos, and inspection status.</div>"}</div>
+ <div class="card"><h2 style="font-size:17px">Today's Inspection Items</h2>${daily.length?daily.sort((a,b)=>itemName(a.n,a.r).localeCompare(itemName(b.n,b.r))).map(({n,r})=>`<button class="dashboard-action dashboard-back daily-caisson" data-n="${n}">${esc(itemName(n,r))} — ${esc(r.status||'No information')}</button>`).join(''):'<div class="tiny">No items have been worked today.</div>'}</div>`;
+ $('dailyReportBtn').onclick=makeDailyReport;$('dashboardBack').onclick=showTarget;
+ if($('resumeBtn'))$('resumeBtn').onclick=()=>{selected=active[0].n;showTarget();scrollToSpot(selected)};
+ document.querySelectorAll('.daily-caisson').forEach(b=>b.onclick=()=>{selected=+b.dataset.n;showTarget();scrollToSpot(selected)})
+}
+async function makeDailyReport(){
+ const items=dailyRecords().sort((a,b)=>a.n-b.n);if(!items.length){toast('No work has been recorded today');return}
+ const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the daily report');return}w.document.write('<title>Preparing daily report…</title><p>Preparing daily report and photos…</p>');
+ try{await saveRestorablePdf('Daily-Shift-Report',items)}catch(err){toast(`PDF backup warning: ${err.message}`)}
+ const sections=[];
+ for(const {n,r} of items){
+  const photos=await getPhotos(n),ncrs=ncrsForCaisson(n),photoHtml=await Promise.all(photos.map(async p=>`<figure><img src="${await blobToDataURL(p.blob)}"><figcaption>${esc(p.name||'Photo')} — ${p.date?new Date(p.date).toLocaleString():''}</figcaption></figure>`));
+   sections.push(`<section><h2>${esc(itemName(n,r))} — ${esc(r.status||'No information')}</h2><table><tr><th>Item type</th><td>${esc(itemType(r))}</td></tr><tr><th>Saved GPS</th><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><th>Started</th><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}${r.pickupGPS?` · ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>Completed</th><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}${r.unloadGPS?` · ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft`:''}</td></tr><tr><th>NCR status</th><td>${ncrStateLabel(n)}</td></tr></table><h3>Inspection Checklist</h3>${inspectionReportHtml(r)}<h3>Notes</h3><p class="notes">${esc(r.notes||'No field notes')}</p>${ncrs.length?`<h3>NCR Details</h3>${ncrs.map(({row,id})=>`<p><b>${esc(id)} — ${esc(statusText(row))}</b><br>${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'No description')}</p>`).join('')}`:''}<h3>Photos (${photos.length})</h3><div class="photos">${photoHtml.join('')}</div></section>`)
+ }
+ const active=activeRecords(),html=`<!doctype html><html><head><meta charset="utf-8"><title>FieldVerify Pro Daily Report ${todayKey()}</title><style>body{font:14px Arial;margin:28px;color:#111}button{font-size:18px;padding:12px 18px;margin:0 8px 12px 0}section{break-before:page;border-top:3px solid #083a73;padding-top:10px}section:first-of-type{break-before:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:7px;text-align:left}.notes{white-space:pre-wrap}.photos{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0;break-inside:avoid}img{width:100%;max-height:500px;object-fit:contain}@media print{button,.screen-note{display:none}}</style></head><body><button onclick="window.print()">Print / Share Copy</button><button onclick="if(window.opener){window.opener.focus();window.close()}else{history.back()}">Back to FieldVerify Pro</button><p class="screen-note"><b>A restorable PDF was also saved to your phone.</b> Use that downloaded PDF with Restore Project.</p><h1>FieldVerify Pro Daily Shift Report</h1><p>${new Date().toLocaleString()}</p><p><b>Items worked:</b> ${items.length} &nbsp; <b>Still active:</b> ${active.length}</p>${sections.join('')}</body></html>`;
+ w.document.open();w.document.write(html);w.document.close()
+}
+function showProjectHome(){selected=null;nearest=null;$('targetStatus').textContent='Project Home';const p=activeProject(),worked=Object.values(records).filter(r=>r.pickupTime||r.unloadTime).length,holds=Object.values(records).filter(r=>r.inspection?.overall==='HOLD').length;$('panel').innerHTML=`<div class="card"><h2>Project Home</h2><div class="tiny">FieldVerify Pro · Drawings. GPS. Inspections. Verified.</div><label class="label">CURRENT PROJECT</label><h2 style="font-size:20px">${esc(p?.name||'No project')}</h2><div class="tiny">${esc([p?.number,p?.client,p?.address,p?.drawingRevision&&`Drawing rev. ${p.drawingRevision}`].filter(Boolean).join(' · ')||'Add project details below.')}</div><div class="dashboard-grid"><div class="metric"><b>${Object.keys(records).length}</b><span>Saved records</span></div><div class="metric"><b>${worked}</b><span>Items worked</span></div><div class="metric"><b>${holds}</b><span>Inspection holds</span></div><div class="metric"><b>${ncrRows.length}</b><span>NCR rows</span></div></div></div><div class="card"><h2 style="font-size:17px">Open Module</h2><div class="module-grid">${['Caisson','ERS','Tieback','Footing','Column'].map(t=>`<button class="moduleBtn" data-type="${t}">${t}${t==='ERS'?' / Earth Retention':''}</button>`).join('')}<button id="allItemsModule">All Inspection Items</button><button id="reportsModule">Dashboard / Reports</button><button id="ncrModule">NCR Management</button></div></div><div class="card"><h2 style="font-size:17px">Projects</h2><div class="project-list">${projects.map(x=>`<div class="project-row"><div><b>${esc(x.name)}</b><div class="tiny">${esc([x.number,x.client,x.drawingRevision&&`Rev. ${x.drawingRevision}`].filter(Boolean).join(' · '))}</div></div><button class="openProject" data-id="${esc(x.id)}" ${x.id===activeProjectId?'disabled':''}>${x.id===activeProjectId?'Open':'Switch'}</button></div>`).join('')}</div></div><div class="card"><h2 style="font-size:17px">Create New Project</h2><div class="project-form"><input id="newProjectName" class="field" placeholder="Project name"><input id="newProjectNumber" class="field" placeholder="Project number"><input id="newProjectClient" class="field" placeholder="Client / contractor"><input id="newProjectAddress" class="field" placeholder="Address / location"><input id="newProjectRevision" class="field" placeholder="Drawing revision"><button id="createProjectBtn" class="dashboard-action">CREATE PROJECT</button></div></div>${toolCard()}`;document.querySelectorAll('.moduleBtn').forEach(b=>b.onclick=()=>openModule(b.dataset.type));$('allItemsModule').onclick=()=>openModule('');$('reportsModule').onclick=openDashboard;$('ncrModule').onclick=()=>{openModule('');toast('Select an item for NCR details or import the current NCR register below')};document.querySelectorAll('.openProject').forEach(b=>b.onclick=()=>switchProject(b.dataset.id));$('createProjectBtn').onclick=createProject;bindTools()}
+function openModule(type){$('itemFilter').value=type;renderPins();selected=null;nearest=null;showTarget();toast(type?`${type} module open`:'All inspection items open')}
+async function switchProject(id){if(id===activeProjectId)return;persist();persistNcr();activeProjectId=id;saveProjects();loadRecords();selected=null;nearest=null;$('itemFilter').value='';await applyStoredDrawing();renderPins();showProjectHome();toast(`Opened ${activeProject().name}`)}
+async function createProject(){const name=$('newProjectName').value.trim();if(!name){toast('Enter a project name');return}const id=`project-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;projects.push({id,name,number:$('newProjectNumber').value.trim(),client:$('newProjectClient').value.trim(),address:$('newProjectAddress').value.trim(),drawingRevision:$('newProjectRevision').value.trim(),created:new Date().toISOString()});persist();persistNcr();activeProjectId=id;records={};ncrRows=[];saveProjects();persist();persistNcr();selected=null;nearest=null;$('itemFilter').value='';await applyStoredDrawing();renderPins();showProjectHome();toast(`Project created: ${name}`)}
+function toolCard(){return`<div class="card"><div class="tools">
+<button id="shareLogBtn" class="share-log">MAKE / SHARE LOG WITH PHOTOS</button>
+<button id="officeReportBtn" class="share-log" style="background:#16803d!important">SEND FULL PROJECT PDF TO OFFICE</button>
+<button id="dashboardBtn" class="share-log" style="background:#083a73!important">DAILY DASHBOARD / SHIFT REPORT</button>
+<button id="backupBtn">Backup Project</button>
+<button id="restoreBtn">Restore Project</button>
+<button id="centerBtn">Center on Me</button>
+<button id="gpsBtn">Restart GPS</button>
+<button id="drawingBtn" class="ncr-import">Load New Drawing</button>
+<button id="drawingResetBtn">Restore Original Drawing</button>
+<button id="ncrImportBtn" class="ncr-import">Import NCR Excel File</button>
+<button id="ncrClearBtn">Clear NCR Data</button>
+</div><div class="tiny" style="margin-top:7px">${ncrRows.length?`${ncrRows.length} NCR spreadsheet rows imported`:'No NCR spreadsheet imported'}</div></div>`}
+function bindTools(){
+ if($('shareLogBtn'))$('shareLogBtn').onclick=makeShareLog;
+ if($('officeReportBtn'))$('officeReportBtn').onclick=shareOfficeReport;
+ if($('dashboardBtn'))$('dashboardBtn').onclick=openDashboard;
+ if($('backupBtn'))$('backupBtn').onclick=backupProject;
+ if($('restoreBtn'))$('restoreBtn').onclick=()=>$('restoreInput').click();
+ if($('centerBtn'))$('centerBtn').onclick=()=>{autoCenter=true;centerOnGPS()};
+ if($('gpsBtn'))$('gpsBtn').onclick=startGPS;
+ if($('drawingBtn'))$('drawingBtn').onclick=()=>$('drawingInput').click();
+ if($('drawingResetBtn'))$('drawingResetBtn').onclick=restoreOriginalDrawing;
+ if($('ncrImportBtn'))$('ncrImportBtn').onclick=()=>$('ncrExcelInput').click();
+ if($('ncrClearBtn'))$('ncrClearBtn').onclick=()=>{if(confirm('Remove the imported NCR spreadsheet? Inspection records and photos will not be deleted.')){ncrRows=[];persistNcr();renderPins();showTarget();toast('NCR data cleared')}}
+}
+function cloneField(value){return value==null?value:JSON.parse(JSON.stringify(value))}
+function historyChange(n,label,fields,values,after){const r=rec(n),before={};for(const field of fields)before[field]=cloneField(r[field]);const history=[...(Array.isArray(r.history)?r.history:[]),{label,time:new Date().toISOString(),fields,before}].slice(-30);records[n]={...r,...values,history,updated:new Date().toISOString()};persist();showTarget();toast(label);if(after)after()}
+function undoLastChange(n){const r=rec(n),history=Array.isArray(r.history)?[...r.history]:[],last=history.pop();if(!last){toast('Nothing to undo');return}if(!confirm(`Undo “${last.label}” for ${itemName(n,r)}?`))return;records[n]={...r,...last.before,history,updated:new Date().toISOString()};persist();showTarget();toast(`Undid: ${last.label}`)}
+function approveGps(action,g){if(!g)return confirm(`${action} without a GPS reading? Start GPS and wait for a lock for the best result.`);if(g.accuracy>15)return confirm(`GPS quality is ${g.quality} (±${Math.round(g.accuracy*3.28084)} ft). Continue with ${action}?`);return true}
+function saveBestGps(n){const g=gpsSnapshot();if(!g){toast('Start GPS and wait for a location lock');return}if(!approveGps('saving this location',g))return;historyChange(n,`Saved best GPS · ${g.quality} ±${Math.round(g.accuracy*3.28084)} ft`,['lat','lon','verified'],{lat:g.lat,lon:g.lon,verified:g.accuracy<=15})}
+function markPickup(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Start Work',g))return;historyChange(n,'Started work / logged GPS',['pickupTime','pickupGPS','status','lat','lon'],{pickupTime:new Date().toISOString(),pickupGPS:g,status:'Work started',lat:g?.lat??r.lat,lon:g?.lon??r.lon})}
+function markUnload(n){const r=rec(n),g=gpsSnapshot();if(!approveGps('Complete Work',g))return;historyChange(n,'Completed work / logged GPS',['unloadTime','unloadGPS','status','verified','lat','lon'],{unloadTime:new Date().toISOString(),unloadGPS:g,status:'Completed',verified:!!g&&g.accuracy<=15,lat:g?.lat??r.lat,lon:g?.lon??r.lon},()=>{selected=null;chooseNext()})}
+function chooseNext(){if(!lastPosition){selected=null;showTarget();toast('Start GPS first');return}const b=nearestUnfinished(lastPosition.coords.latitude,lastPosition.coords.longitude);nearest=b?.n??null;selected=nearest;renderPins();showTarget();if(selected)scrollToSpot(selected)}
+function nearestUnfinished(lat,lon){let best=null,filter=currentFilter();for(const h of HOTSPOTS){const r=rec(h.caisson);if((filter&&itemType(r)!==filter)||r.unloadTime||num(r.lat)==null||num(r.lon)==null)continue;const d=haversine(lat,lon,+r.lat,+r.lon);if(!best||d<best.d)best={n:h.caisson,d}}return best}
+function haversine(a,b,c,d){const R=6371000,t=Math.PI/180,da=(c-a)*t,db=(d-b)*t,q=Math.sin(da/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(db/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
+function solve3(A,b){A=A.map((r,i)=>[...r,b[i]]);for(let i=0;i<3;i++){let p=i;for(let j=i+1;j<3;j++)if(Math.abs(A[j][i])>Math.abs(A[p][i]))p=j;[A[i],A[p]]=[A[p],A[i]];if(Math.abs(A[i][i])<1e-14)return null;for(let j=i+1;j<3;j++){const f=A[j][i]/A[i][i];for(let k=i;k<4;k++)A[j][k]-=f*A[i][k]}}const x=[0,0,0];for(let i=2;i>=0;i--)x[i]=(A[i][3]-A[i].slice(i+1,3).reduce((s,v,k)=>s+v*x[i+1+k],0))/A[i][i];return x}
+function regress(points,key){const M=[[0,0,0],[0,0,0],[0,0,0]],b=[0,0,0];for(const p of points){const v=[p.lon,p.lat,1],y=p[key];for(let i=0;i<3;i++){b[i]+=v[i]*y;for(let j=0;j<3;j++)M[i][j]+=v[i]*v[j]}}return solve3(M,b)}
+function fitTransform(){const pts=HOTSPOTS.map(h=>{const r=rec(h.caisson);return num(r.lat)!=null&&num(r.lon)!=null?{lat:+r.lat,lon:+r.lon,x:h.x,y:h.y}:null}).filter(Boolean);if(pts.length<3){transform=null;return}const ax=regress(pts,'x'),ay=regress(pts,'y');transform=ax&&ay?{ax,ay}:null}
+function project(lat,lon){return transform?{x:transform.ax[0]*lon+transform.ax[1]*lat+transform.ax[2],y:transform.ay[0]*lon+transform.ay[1]*lat+transform.ay[2]}:null}
+function startGPS(){stopGPS();gpsSamples=[];bestPosition=null;$('gpsStatus').textContent='GPS searching for best lock…';$('accuracyStatus').textContent='Collecting readings…';const opts={enableHighAccuracy:true,maximumAge:0,timeout:15000};watchId=navigator.geolocation.watchPosition(updateGPS,geoError,opts);refreshTimer=setInterval(()=>navigator.geolocation.getCurrentPosition(updateGPS,()=>{},opts),4000);$('locate').textContent='Stop GPS';$('locate').onclick=stopGPS}
+function stopGPS(){if(watchId!=null)navigator.geolocation.clearWatch(watchId);watchId=null;if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;$('gpsStatus').textContent='GPS off';$('locate').textContent='Start GPS';$('locate').onclick=startGPS}
+function updateGPS(p){if(!Number.isFinite(p.coords.accuracy)||p.coords.accuracy<=0)return;if(lastPosition&&p.timestamp<=lastPosition.timestamp)return;if(lastPosition){const seconds=Math.max(1,(p.timestamp-lastPosition.timestamp)/1000),jump=haversine(lastPosition.coords.latitude,lastPosition.coords.longitude,p.coords.latitude,p.coords.longitude);if(jump>Math.max(50,seconds*12)&&p.coords.accuracy>=lastPosition.coords.accuracy){$('gpsStatus').textContent='GPS jump ignored';return}}lastPosition=p;lastGoodAt=Date.now();gpsSamples.push(p);gpsSamples=gpsSamples.filter(x=>Date.now()-(x.timestamp||0)<20000).slice(-12);bestPosition=gpsSamples.reduce((best,x)=>!best||x.coords.accuracy<best.coords.accuracy?x:best,null);const best=gpsSnapshot(),age=Math.max(0,Math.round((Date.now()-new Date(best.time).getTime())/1000));$('gpsStatus').textContent=`GPS live · ${best.quality}`;$('accuracyStatus').textContent=`Best ±${Math.round(best.accuracy*3.28084)} ft · ${gpsSamples.length} reading${gpsSamples.length===1?'':'s'} · ${age}s old`;const b=nearestUnfinished(p.coords.latitude,p.coords.longitude);nearest=b?.n??null;if(selected==null)selected=nearest;renderPins();drawBlueDot();showTarget();if(autoCenter)centerOnGPS()}
+function drawBlueDot(){const p=lastPosition,q=p&&project(p.coords.latitude,p.coords.longitude),layer=$('gpsLayer');if(!q){layer.innerHTML='';return}const m=$('map'),probe=project(p.coords.latitude,p.coords.longitude+.00001),meters=haversine(p.coords.latitude,p.coords.longitude,p.coords.latitude,p.coords.longitude+.00001),pct=Math.max(.00001,Math.abs(probe.x-q.x)),pxPerMeter=(m.offsetWidth*pct/100)/meters,r=Math.max(30,p.coords.accuracy*pxPerMeter*2);layer.innerHTML=`<div class="accuracy" style="left:${q.x}%;top:${q.y}%;width:${r}px;height:${r}px"></div><div class="blue-dot" style="left:${q.x}%;top:${q.y}%"></div>`}
+function centerOnGPS(){if(!lastPosition)return;const q=project(lastPosition.coords.latitude,lastPosition.coords.longitude);if(!q)return;const s=$('mapShell'),m=$('map');s.scrollTo({left:m.offsetWidth*q.x/100-s.clientWidth/2,top:m.offsetHeight*q.y/100-s.clientHeight/2,behavior:'smooth'})}
+function geoError(e){$('gpsStatus').textContent=e.code===1?'Location permission denied':'GPS signal lost';if(e.code===1)toast('Allow Precise Location for Safari in iPhone Settings')}
+function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',3);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'});if(!q.result.objectStoreNames.contains('ncrPdfs'))q.result.createObjectStore('ncrPdfs',{keyPath:'id'});if(!q.result.objectStoreNames.contains('settings'))q.result.createObjectStore('settings',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function drawingStorageId(){return activeProjectId==='legacy'?'drawing':`drawing:${activeProjectId}`}
+async function drawingSetting(){try{const db=await openDB();return await new Promise(resolve=>{const q=db.transaction('settings').objectStore('settings').get(drawingStorageId());q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>resolve(null)})}catch{return null}}
+let pdfJsModule=null;
+async function loadPdfJs(){if(!pdfJsModule){pdfJsModule=await import('./pdf.min.mjs');pdfJsModule.GlobalWorkerOptions.workerSrc='./pdf.worker.min.mjs'}return pdfJsModule}
+async function pdfInfo(blob){const pdfjs=await loadPdfJs(),pdf=await pdfjs.getDocument({data:await blob.arrayBuffer()}).promise;return pdf}
+async function saveDrawing(file){let pageNumber=1,pageCount=1;if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){const pdf=await pdfInfo(file);pageCount=pdf.numPages;if(pageCount>1){const answer=prompt(`This PDF has ${pageCount} pages. Which page should be used as the drawing?`,'1');pageNumber=Math.max(1,Math.min(pageCount,parseInt(answer||'1',10)||1))}}const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:drawingStorageId(),name:file.name,type:file.type||(file.name.toLowerCase().endsWith('.pdf')?'application/pdf':''),blob:file,pageNumber,pageCount,date:new Date().toISOString()});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing();toast(pageCount>1?`PDF drawing loaded: page ${pageNumber} of ${pageCount}`:`Drawing loaded: ${file.name}`)}
+async function renderPdfDrawing(item,img){const pdf=await pdfInfo(item.blob),pageNumber=Math.max(1,Math.min(pdf.numPages,item.pageNumber||1)),page=await pdf.getPage(pageNumber),base=page.getViewport({scale:1}),scale=Math.min(3,3200/Math.max(base.width,base.height)),viewport=page.getViewport({scale}),canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;const rendered=await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('PDF page could not be rendered')),'image/png'));img._customUrl=URL.createObjectURL(rendered);img.src=img._customUrl;img.alt=`${item.name||'PDF drawing'} — page ${pageNumber} of ${pdf.numPages}`}
+async function applyStoredDrawing(){const item=await drawingSetting(),img=$('planImage');if(img._customUrl)URL.revokeObjectURL(img._customUrl);img._customUrl=null;if(item?.blob){if(item.type==='application/pdf'||item.name?.toLowerCase().endsWith('.pdf'))await renderPdfDrawing(item,img);else{img._customUrl=URL.createObjectURL(item.blob);img.src=img._customUrl;img.alt=item.name||'Custom foundation drawing'}}else{img.src='caisson-plan.png';img.alt='Foundation caisson plan'}img.onload=()=>{drawBlueDot();if(targetNumber())scrollToSpot(targetNumber())}}
+async function restoreOriginalDrawing(){try{const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').delete(drawingStorageId());await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing();toast('Original drawing restored')}catch(err){toast(`Drawing reset failed: ${err.message}`)}}
+$('drawingInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(!file.type.startsWith('image/')&&file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf'))throw Error('Choose a PDF, PNG, JPG, WebP, or GIF file');toast(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')?'Rendering PDF drawing…':'Loading drawing…');await saveDrawing(file)}catch(err){toast(`Drawing load failed: ${err.message}`)}e.target.value=''};
+$('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
+async function allFromStore(db,name){return new Promise((res,rej)=>{const q=db.transaction(name).objectStore(name).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
+async function buildProjectBackup(){
+ const photos=[],ncrPdfs=[],photoIds=new Set(Object.values(records).flatMap(r=>Array.isArray(r?.photos)?r.photos:[]));let customDrawing=null;
+ try{
+  const db=await openDB();
+  for(const p of await allFromStore(db,'photos'))if(photoIds.has(p.id))photos.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
+  for(const p of await allFromStore(db,'ncrPdfs'))ncrPdfs.push({...p,blob:undefined,data:await blobToDataURL(p.blob)});
+  const drawing=await drawingSetting();if(drawing?.blob)customDrawing={name:drawing.name,type:drawing.type,date:drawing.date,pageNumber:drawing.pageNumber||1,pageCount:drawing.pageCount||1,data:await blobToDataURL(drawing.blob)};
+ }catch(err){toast(`Backup warning: ${err.message}`)}
+ for(let i=0;i<localStorage.length;i++){
+  const key=localStorage.key(i);
+  if(!key?.startsWith('ncrpdfdata:'))continue;
+  const id=key.slice('ncrpdfdata:'.length);
+  if(!ncrPdfs.some(p=>p.id===id))ncrPdfs.push({id,name:`${id}.pdf`,type:'application/pdf',data:localStorage.getItem(key)});
+ }
+ const payload={app:'FieldVerify Pro',version:7,created:new Date().toISOString(),project:activeProject(),records,photos,ncrRows,ncrPdfs,customDrawing,localStorage:{foundationInspectorRecords:records,foundationInspectorNcrData:ncrRows}};
+ return{payload,photos,ncrPdfs}
+}
+async function saveProjectBackup(reason='Backup'){
+ const {payload,photos,ncrPdfs}=await buildProjectBackup(),safeReason=String(reason).replace(/[^a-z0-9-]+/gi,'-'),url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'})),a=document.createElement('a');
+ a.href=url;a.download=`FieldVerify-Pro-${safeReason}-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);toast(`Data saved to phone: ${Object.keys(records).length} records, ${photos.length} photos, ${ncrPdfs.length} NCR PDFs`)
+}
+async function backupProject(){await saveProjectBackup('Backup')}
+function pdfText(value){return String(value??'').replace(/[—–]/g,'-').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[^\x20-\x7e\xa0-\xff]/g,'?')}
+function pdfLines(text,max=84){const words=pdfText(text).replace(/\s+/g,' ').trim().split(' '),lines=[];let line='';for(const word of words){if((line+' '+word).trim().length>max){if(line)lines.push(line);line=word}else line=(line+' '+word).trim()}if(line)lines.push(line);return lines.length?lines:['-']}
+async function imageForPdf(blob,pdf){const url=URL.createObjectURL(blob);try{const img=await new Promise((res,rej)=>{const x=new Image();x.onload=()=>res(x);x.onerror=()=>rej(Error('Photo could not be opened'));x.src=url}),scale=Math.min(1,1400/Math.max(img.naturalWidth,img.naturalHeight)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);const jpeg=await new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(Error('Photo conversion failed')),'image/jpeg',.72));return pdf.embedJpg(await jpeg.arrayBuffer())}finally{URL.revokeObjectURL(url)}}
+async function saveRestorablePdf(reason,items,shareToOffice=false){
+ if(!window.PDFLib)throw Error('Restorable PDF engine did not load');
+ toast(shareToOffice?'Preparing office PDF…':'Building restorable PDF and backup…');const payload=shareToOffice?null:(await buildProjectBackup()).payload,{PDFDocument,StandardFonts,rgb}=PDFLib,pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),page=pdf.addPage([612,792]),project=activeProject(),draw=(text,y,size=11,strong=false)=>page.drawText(pdfText(text),{x:42,y,size,font:strong?bold:font,color:rgb(0.04,.12,.2)});
+ draw('FieldVerify Pro - Restorable Field Log',742,20,true);draw(project?.name||'Project',714,15,true);draw(`${reason.replace(/-/g,' ')} - ${new Date().toLocaleString()}`,692,10);draw(`Project number: ${project?.number||'-'}`,672,10);draw(`Records in backup: ${Object.keys(records).length} - NCR rows: ${ncrRows.length}`,656,10);draw('This PDF contains an embedded complete project backup.',628,12,true);draw('Open FieldVerify Pro, choose Restore Project, and select this PDF.',610,11);
+ for(let itemIndex=0;itemIndex<items.length;itemIndex++){const {n,r}=items[itemIndex];if(shareToOffice&&(itemIndex===0||itemIndex%5===0))toast(`Building office PDF: ${itemIndex+1} of ${items.length} records…`);let p=pdf.addPage([612,792]),y=746;const put=(text,size=10,strong=false)=>{for(const line of pdfLines(text,strong?70:84)){if(y<54){p=pdf.addPage([612,792]);y=746}p.drawText(line,{x:42,y,size,font:strong?bold:font,color:rgb(.04,.12,.2)});y-=size+5}};put(`${itemName(n,r)} - ${r.status||'No information'}`,16,true);put(`Type: ${itemType(r)}`);put(`GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}`);put(`Updated: ${r.updated?new Date(r.updated).toLocaleString():'-'}`);put(`Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'-'}`);put(`Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'-'}`);put(`NCR: ${ncrStateLabel(n)}`);const inspection=r.inspection||{};put(`Inspection overall: ${inspection.overall||'Not set'}`);for(const [key,label] of inspectionFields(r))if(inspection[key])put(`${label}: ${inspection[key]}`);const itemNcrs=ncrsForCaisson(n);for(const {row,id} of itemNcrs){put(`${id}: ${statusText(row)}`,11,true);put(`Issue: ${findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed'}`);put(`Correction: ${findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed'}`)}y-=8;put('Notes',12,true);put(r.notes||'No field notes');const photos=await getPhotos(n);put(`Photos: ${photos.length}`);for(const photo of photos){try{const embedded=await imageForPdf(photo.blob,pdf),dims=embedded.scale(Math.min(520/embedded.width,620/embedded.height,1)),photoPage=pdf.addPage([612,792]);photoPage.drawText(pdfText(`${itemName(n,r)} - ${photo.name||'Photo'} - ${photo.date?new Date(photo.date).toLocaleString():''}`),{x:42,y:748,size:11,font:bold});photoPage.drawImage(embedded,{x:(612-dims.width)/2,y:92+(620-dims.height)/2,width:dims.width,height:dims.height})}catch{}}
+ }
+ if(payload){const backupBytes=new TextEncoder().encode(JSON.stringify(payload));await pdf.attach(backupBytes,'FieldVerify-Pro-Backup.json',{mimeType:'application/json',description:'Complete FieldVerify Pro project backup',creationDate:new Date(),modificationDate:new Date()})}const bytes=await pdf.save(),filename=`FieldVerify-Pro-${String(reason).replace(/[^a-z0-9-]+/gi,'-')}-${new Date().toISOString().slice(0,10)}.pdf`,file=new File([bytes],filename,{type:'application/pdf'});if(shareToOffice){pendingOfficeFile=file;$('shareReadyText').textContent=`${filename} is ready. Tap Share PDF Now and choose Mail, Messages, Drive, or Files.`;$('shareReady').classList.remove('hidden');toast('Office PDF ready - tap Share PDF Now');return}downloadFile(file);toast('Restorable PDF saved to phone')
+}
+async function shareOfficeReport(){const items=Object.entries(records).map(([n])=>({n:+n,r:rec(+n)})).sort((a,b)=>a.n-b.n);if(!items.length){toast('No saved project information to send');return}try{await saveRestorablePdf('Full-Project-Office-Report',items,true)}catch(err){toast(`Office report failed: ${err.message}`)}}
+function downloadFile(file){const url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
+async function sharePendingOfficeFile(){const file=pendingOfficeFile;if(!file){toast('Build the office report first');$('shareReady').classList.add('hidden');return}if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){try{await navigator.share({title:`FieldVerify Pro - ${activeProject()?.name||'Project'}`,text:'Complete field inspection report with saved information and photos.',files:[file]});pendingOfficeFile=null;$('shareReady').classList.add('hidden');toast('Project report shared');return}catch(err){if(err?.name==='AbortError'){toast('Sharing canceled');return}}}downloadFile(file);pendingOfficeFile=null;$('shareReady').classList.add('hidden');toast('PDF saved to Downloads')}
+$('shareNowBtn').onclick=sharePendingOfficeFile;$('shareCancelBtn').onclick=()=>{$('shareReady').classList.add('hidden')};
+function blobToDataURL(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
+function dataURLToBlob(s){const [h,b]=s.split(','),mime=(h.match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})}
+
+$('libraryInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
+async function savePhotos(n,files){
+ const db=await openDB(),tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos'),r=rec(n),ids=[...(r.photos||[])];
+ for(const f of files){const id=`${n}-${Date.now()}-${Math.random()}`;store.put({id,caisson:n,name:f.name,type:f.type,blob:f,date:new Date().toISOString()});ids.push(id)}
+ await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+ records[n]={...r,photos:ids,updated:new Date().toISOString()};persist();showTarget();toast(`${files.length} photo${files.length===1?'':'s'} saved`)
+}
+async function showPhotoPreview(n){
+ const box=$('photoPreview'),count=$('photoCount');if(!box)return;
+ const photos=await getPhotos(n);count.textContent=`${photos.length} photo${photos.length===1?'':'s'} saved`;
+ box.innerHTML=photos.slice(0,6).map(p=>`<div><img src="${URL.createObjectURL(p.blob)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><button class="remove-photo next" data-id="${esc(p.id)}" style="width:100%;padding:7px;margin-top:3px">Remove</button></div>`).join('');
+ box.querySelectorAll('.remove-photo').forEach(button=>button.onclick=()=>{if(confirm(`Remove this photo from ${itemName(n,rec(n))}?`)){const r=rec(n);historyChange(n,'Removed a photo',['photos'],{photos:(r.photos||[]).filter(id=>id!==button.dataset.id)})}})
+}
+async function getPhotos(n){
+ const ids=rec(n).photos||[];if(!ids.length)return[];
+ const db=await openDB(),tx=db.transaction('photos'),store=tx.objectStore('photos');
+ return (await Promise.all(ids.map(id=>new Promise(resolve=>{const q=store.get(id);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>resolve(null)})))).filter(Boolean)
+}
+function loadXlsxLibrary(){
+ if(window.XLSX)return Promise.resolve(window.XLSX);
+ return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>resolve(window.XLSX);s.onerror=()=>reject(Error('The local Excel reader could not load. Reload the app and try again.'));document.head.appendChild(s)})
+}
+$('ncrExcelInput').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+   toast('Reading NCR spreadsheet…');
+   const XLSX=await loadXlsxLibrary(),wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+   let best=[];
+   for(const name of wb.SheetNames){
+     const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false});
+     if(rows.length>best.length)best=rows
+   }
+   if(!best.length)throw Error('No NCR rows were found');
+   ncrRows=best;persistNcr();renderPins();showTarget();toast(`${ncrRows.length} NCR rows imported`)
+ }catch(err){toast(`NCR import failed: ${err.message}`)}
+ e.target.value=''
+}
+function attachNcrPdf(id){pendingNcrPdfId=id;$('ncrPdfInput').click()}
+$('ncrPdfInput').onchange=async e=>{
+ const file=e.target.files[0],id=pendingNcrPdfId;if(!file||!id)return;
+ try{
+  const db=await openDB(),tx=db.transaction('ncrPdfs','readwrite');
+  tx.objectStore('ncrPdfs').put({id,name:file.name,type:file.type||'application/pdf',blob:file,date:new Date().toISOString()});
+  await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  localStorage.setItem(`ncrpdf:${id}`,'yes');localStorage.removeItem(`ncrpdfdata:${id}`);toast(`PDF attached to ${id}`);showTarget()
+ }catch(err){toast(`PDF attach failed: ${err.message}`)}
+ e.target.value='';pendingNcrPdfId=null
+}
+async function openNcrPdf(id){
+ let source=null;
+ try{
+  const db=await openDB(),item=await new Promise(resolve=>{const q=db.transaction('ncrPdfs').objectStore('ncrPdfs').get(id);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>resolve(null)});
+  if(item?.blob)source=URL.createObjectURL(item.blob)
+ }catch{}
+ source=source||localStorage.getItem(`ncrpdfdata:${id}`);
+ if(!source){toast('No PDF attached');return}
+ const w=window.open(source,'_blank');if(!w)toast('Allow pop-ups to open the NCR PDF');else if(source.startsWith('blob:'))setTimeout(()=>URL.revokeObjectURL(source),60000)
+}
+async function makeShareLog(){
+ const n=targetNumber();if(!n){toast('Select an inspection item first');return}
+ const w=window.open('','_blank');if(!w){toast('Allow pop-ups to create the report');return}
+ w.document.write('<!doctype html><title>Preparing field log…</title><p style="font:18px Arial;padding:24px">Preparing field log and photos…</p>');
+ try{await saveRestorablePdf(`Field-Log-${itemName(n,rec(n))}`,[{n,r:rec(n)}])}catch(err){toast(`PDF backup warning: ${err.message}`)}
+ const r=rec(n),photos=await getPhotos(n),ncrs=ncrsForCaisson(n);
+ const photoHtml=await Promise.all(photos.map(async p=>`<div class="photo"><img src="${await blobToDataURL(p.blob)}"><div>${esc(p.name||'Photo')} — ${p.date?new Date(p.date).toLocaleString():''}</div></div>`));
+ const ncrHtml=ncrs.length?ncrs.map(({row,id})=>`<section class="ncr"><h3>${esc(id)} — ${esc(statusText(row))}</h3><p><b>Issue:</b> ${esc(findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed')}</p><p><b>Correction required:</b> ${esc(findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed')}</p><p><b>RFI:</b> ${esc(findField(row,['RFI Status','RFI','RFI Number'])||'Not listed')}</p><p><b>Ball in court:</b> ${esc(findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed')}</p></section>`).join(''):'<p>No imported NCR lists this item.</p>';
+ const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(itemName(n,r))} Field Log</title><style>
+ body{font:14px Arial,sans-serif;color:#111;margin:28px}h1{margin-bottom:4px}.meta{border-collapse:collapse;width:100%;margin:12px 0}.meta td{border:1px solid #aaa;padding:7px}.ncr{border:2px solid #d49300;padding:10px;margin:10px 0;break-inside:avoid}.photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}.photo{break-inside:avoid;border:1px solid #aaa;padding:6px}.photo img{width:100%;max-height:520px;object-fit:contain}@media print{button{display:none}.photos{display:block}.photo{margin:0 0 12px}}
+ </style></head><body><button onclick="window.print()" style="font-size:18px;padding:12px 20px;margin-right:8px">Print / Share Copy</button><button onclick="if(window.opener){window.opener.focus();window.close()}else{history.back()}" style="font-size:18px;padding:12px 20px">Back to FieldVerify Pro</button><p><b>A restorable PDF was also saved to your phone.</b> Use that downloaded PDF with Restore Project.</p>
+ <h1>FieldVerify Pro — ${esc(itemName(n,r))}</h1><div>Created ${new Date().toLocaleString()}</div>
+ <table class="meta"><tr><td><b>Item type</b></td><td>${esc(itemType(r))}</td></tr><tr><td><b>Status</b></td><td>${esc(r.status||'No information')}</td></tr><tr><td><b>Saved latitude / longitude</b></td><td>${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}</td></tr><tr><td><b>Started</b></td><td>${r.pickupTime?new Date(r.pickupTime).toLocaleString():'—'}</td></tr><tr><td><b>Start GPS</b></td><td>${r.pickupGPS?`${r.pickupGPS.lat}, ${r.pickupGPS.lon} · accuracy ±${Math.round((r.pickupGPS.accuracy||0)*3.28084)} ft · ${new Date(r.pickupGPS.time).toLocaleString()}`:'Not captured'}</td></tr><tr><td><b>Completed</b></td><td>${r.unloadTime?new Date(r.unloadTime).toLocaleString():'—'}</td></tr><tr><td><b>Completion GPS</b></td><td>${r.unloadGPS?`${r.unloadGPS.lat}, ${r.unloadGPS.lon} · accuracy ±${Math.round((r.unloadGPS.accuracy||0)*3.28084)} ft · ${new Date(r.unloadGPS.time).toLocaleString()}`:'Not captured'}</td></tr></table>
+ <h2>Inspection Checklist</h2>${inspectionReportHtml(r)}<h2>Field Notes</h2><p style="white-space:pre-wrap">${esc(r.notes||'No field notes')}</p><h2>NCR Information</h2><p><b>Map NCR status:</b> ${esc(ncrStateLabel(n))}</p>${ncrHtml}<h2>Photos (${photos.length})</h2><div class="photos">${photoHtml.join('')}</div></body></html>`;
+ w.document.open();w.document.write(html);w.document.close()
+}
+
+$('restoreInput').onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{
+  toast('Restoring project and attachments…');
+  let j;if(f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf')){const pdf=await pdfInfo(f),attachments=await pdf.getAttachments(),backup=attachments&&Object.values(attachments).find(x=>String(x.filename||'').toLowerCase().endsWith('.json'));if(!backup?.content)throw Error('This PDF does not contain a FieldVerify project backup');j=JSON.parse(new TextDecoder().decode(backup.content))}else j=JSON.parse(await f.text());let incoming=j.records||j.foundationInspectorRecords||j.localStorage?.foundationInspectorRecords;
+  if(typeof incoming==='string')incoming=JSON.parse(incoming);
+  if(!incoming&&j&&typeof j==='object'&&!Array.isArray(j)&&Object.keys(j).some(k=>/^\d+$/.test(k)))incoming=j;
+  if(Array.isArray(incoming))incoming=Object.fromEntries(incoming.map((r,i)=>[String(r?.caisson??r?.number??r?.id??i+1),r]));
+  if(!incoming||typeof incoming!=='object')throw Error('No records found');
+  for(const [key,value] of Object.entries(incoming))if(typeof value==='string'){try{incoming[key]=JSON.parse(value)}catch{incoming[key]={...defaultRec(),notes:value}}}
+  if(j.project&&typeof j.project==='object'){
+   const currentName=activeProject()?.name||'the project currently open',savedName=String(j.project.name||'Restored Project'),mergeCurrent=confirm(`Restore this backup into "${currentName}"?\n\nTap OK to merge the restored records into the drawing currently open.\nTap Cancel to restore and open "${savedName}" as a separate project.`);
+   if(!mergeCurrent){persist();persistNcr();const restoredProject={...j.project,id:String(j.project.id||`restored-${Date.now()}`),name:savedName},at=projects.findIndex(p=>p.id===restoredProject.id);if(at>=0)projects[at]={...projects[at],...restoredProject};else projects.push(restoredProject);activeProjectId=restoredProject.id;saveProjects();loadRecords()}
+  }
+  records={...records,...incoming};
+  const restoredNcr=j.ncrRows||j.foundationInspectorNcrData||j.localStorage?.foundationInspectorNcrData;
+  if(Array.isArray(restoredNcr)){ncrRows=restoredNcr;persistNcr()}
+  const db=await openDB();let photoCount=0,pdfCount=0,skipped=0;
+  if(Array.isArray(j.photos)&&j.photos.length){const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');for(const p of j.photos)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});const n=String(p.caisson??p.number??'');if(n&&records[n]){const ids=Array.isArray(records[n].photos)?records[n].photos:[];if(!ids.includes(p.id))records[n]={...records[n],photos:[...ids,p.id]}}photoCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  if(Array.isArray(j.ncrPdfs)&&j.ncrPdfs.length){const tx=db.transaction('ncrPdfs','readwrite'),store=tx.objectStore('ncrPdfs');for(const p of j.ncrPdfs)if(p.id&&p.data){try{store.put({...p,blob:dataURLToBlob(p.data),data:undefined});localStorage.setItem(`ncrpdf:${p.id}`,'yes');pdfCount++}catch{skipped++}}await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+  if(j.customDrawing?.data){const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:drawingStorageId(),name:j.customDrawing.name||'Restored drawing',type:j.customDrawing.type||'image/png',date:j.customDrawing.date||new Date().toISOString(),pageNumber:j.customDrawing.pageNumber||1,pageCount:j.customDrawing.pageCount||1,blob:dataURLToBlob(j.customDrawing.data)});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing()}
+  persist();persistNcr();selected=null;nearest=null;await applyStoredDrawing();renderPins();showProjectHome();toast(`Restored into ${activeProject()?.name||'current project'}: ${Object.keys(incoming).length} records, ${photoCount} photos, ${pdfCount} NCR PDFs${skipped?` · ${skipped} damaged files skipped`:''}`)
+ }catch(err){toast(`Restore failed: ${err.message}`)}
+ e.target.value=''
+}
+function updateNetworkStatus(){const b=$('networkStatus');b.textContent=navigator.onLine?'Online · offline ready':'Offline · data saving';b.style.background=navigator.onLine?'#16803d':'#b42318'}
+async function enableOffline(){updateNetworkStatus();addEventListener('online',()=>{updateNetworkStatus();toast('Connection restored')});addEventListener('offline',()=>{updateNetworkStatus();toast('Offline mode — work will keep saving')});if(!('serviceWorker'in navigator))return;try{const reg=await navigator.serviceWorker.register('./service-worker.js');reg.update().catch(()=>{});reg.addEventListener('updatefound',()=>{const worker=reg.installing;if(worker)worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)toast('App update ready — refresh when convenient')})})}catch(err){console.warn('Offline setup failed',err)}}
+$('find').onclick=()=>{const q=$('search').value.trim().toLowerCase();const hit=HOTSPOTS.find(h=>String(h.caisson)===q||itemName(h.caisson,rec(h.caisson)).toLowerCase()===q)||HOTSPOTS.find(h=>itemName(h.caisson,rec(h.caisson)).toLowerCase().includes(q));if(q&&hit){selected=hit.caisson;showTarget();scrollToSpot(selected)}else toast('Item not found')};$('search').onkeydown=e=>{if(e.key==='Enter')$('find').click()};$('itemFilter').onchange=()=>{renderPins();selected=null;nearest=null;showTarget();toast(currentFilter()?`Showing ${currentFilter()} items`:'Showing all item types')};$('mapShell').addEventListener('touchstart',()=>autoCenter=false,{passive:true});$('mapShell').addEventListener('mousedown',()=>autoCenter=false);$('locate').onclick=startGPS;$('projectsBtn').onclick=showProjectHome;
+initializeProjects();installMapZoom();loadRecords();applyStoredDrawing();loadHotspots().then(showProjectHome).catch(e=>{$('panel').innerHTML=`<div class="card"><h2>App could not load the drawing</h2><div class="notice">${esc(e.message)}</div><p class="tiny">Reload the page. If you opened the app before, offline mode will use the saved copy.</p></div>${toolCard()}`;bindTools();});bindTools();enableOffline();document.addEventListener('visibilitychange',()=>{if(!document.hidden&&watchId!=null&&Date.now()-lastGoodAt>10000)startGPS()});
+</script>
+<script src="backup-zip-v10.js"></script>
+</body>
+</html>
