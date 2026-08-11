@@ -14,14 +14,12 @@
     document.head.appendChild(style);
   }
 
-  const originalStateClass=window.stateClass;
-  if(typeof originalStateClass==='function'){
-    window.stateClass=function(r,n){
-      let cls=originalStateClass(r,n);
-      if(!visible)cls=cls.replace(/\s+ncr-(open|pending|cleared)/g,'');
-      return cls;
-    };
-  }
+  const originalStateClass=stateClass;
+  stateClass=function(r,n){
+    let cls=originalStateClass(r,n);
+    if(!visible)cls=cls.replace(/\s+ncr-(open|pending|cleared)/g,'');
+    return cls;
+  };
 
   function updateToggle(){
     const b=document.getElementById('ncrRfiToggle');
@@ -41,8 +39,8 @@
       visible=!visible;
       localStorage.setItem(KEY,String(visible));
       updateToggle();
-      if(typeof window.renderPins==='function')window.renderPins();
-      if(typeof window.toast==='function')window.toast(visible?'NCR / RFI map colors shown':'NCR / RFI map colors hidden');
+      renderPins();
+      toast(visible?'NCR / RFI map colors shown':'NCR / RFI map colors hidden');
     };
     const zoomOut=document.getElementById('zoomOut');
     controls.insertBefore(b,zoomOut||null);
@@ -50,9 +48,8 @@
   }
 
   function reasonRows(n){
-    if(typeof window.ncrsForCaisson!=='function'||typeof window.findField!=='function')return [];
-    return window.ncrsForCaisson(n).map(({row,id})=>{
-      const issue=String(window.findField(row,['Description','NCR Description','Issue Description','Issue'])||'').trim();
+    return ncrsForCaisson(n).map(({row,id})=>{
+      const issue=String(findField(row,['Description','NCR Description','Issue Description','Issue'])||'').trim();
       return issue?{id,issue}:null;
     }).filter(Boolean);
   }
@@ -60,7 +57,7 @@
   function addReasonToNotes(){
     const notes=document.getElementById('notes');
     if(!notes||document.querySelector('.ncr-reason-notes'))return;
-    const n=window.selected??window.nearest;
+    const n=selected??nearest;
     if(n==null)return;
     const rows=reasonRows(n);
     if(!rows.length)return;
@@ -81,17 +78,15 @@
     notes.parentNode.insertBefore(box,notes);
   }
 
-  const originalShowTarget=window.showTarget;
-  if(typeof originalShowTarget==='function'){
-    window.showTarget=function(...args){
-      const result=originalShowTarget.apply(this,args);
-      addReasonToNotes();
-      return result;
-    };
-  }
+  const originalShowTarget=showTarget;
+  showTarget=function(...args){
+    const result=originalShowTarget.apply(this,args);
+    addReasonToNotes();
+    return result;
+  };
 
   addStyles();
   installToggle();
   addReasonToNotes();
-  if(typeof window.renderPins==='function')window.renderPins();
+  renderPins();
 })();
