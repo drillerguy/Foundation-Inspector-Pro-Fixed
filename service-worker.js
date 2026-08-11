@@ -1,4 +1,4 @@
-const CACHE='fieldverify-pro-v27';
+const CACHE='fieldverify-pro-v28';
 const CORE=['./','./index.html','./ncr-ui-patch.js','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'];
 
 self.addEventListener('install',event=>{
