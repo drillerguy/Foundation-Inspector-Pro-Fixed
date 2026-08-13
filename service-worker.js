@@ -1,26 +1,9 @@
-const CACHE='fieldverify-pro-v102-lock-1';
+const CACHE='fieldverify-pro-v1021';
 const REQUIRED_BUILD='10.2';
-const CORE=[
-  './',
-  './index.html',
-  './ncr-ui-patch.js',
-  './backup-zip-v10.js',
-  './caisson-plan.png',
-  './caisson-data.js',
-  './xlsx.full.min.js',
-  './pdf.min.mjs',
-  './pdf.worker.min.mjs',
-  './pdf-lib.min.js',
-  './manifest.webmanifest',
-  './recovery.html'
-];
+const CORE=['./','./index.html','./ncr-ui-patch.js','./backup-zip-v10.js','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'];
 
 self.addEventListener('install',event=>{
-  event.waitUntil(
-    caches.open(CACHE)
-      .then(cache=>cache.addAll(CORE))
-      .then(()=>self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting()));
 });
 
 self.addEventListener('activate',event=>{
@@ -28,83 +11,35 @@ self.addEventListener('activate',event=>{
     const keys=await caches.keys();
     await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
     await self.clients.claim();
-
-    const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
-    for(const client of clients){
-      client.postMessage({type:'FIELDVERIFY_BUILD',version:REQUIRED_BUILD,forceReload:true});
-    }
   })());
 });
 
-async function patchHtml(response){
-  if(!response)return response;
+async function versionOnly(response){
   const text=await response.text();
-  let patched=text;
-
-  // Keep the version shown at the top of the app synchronized with this deployed build.
-  patched=patched.replace(/v7\.3 stable/g,`v${REQUIRED_BUILD} stable`);
-  patched=patched.replace(/v7\.5 stable/g,`v${REQUIRED_BUILD} stable`);
-  patched=patched.replace(/v10\.2(?:\.0)? stable/g,`v${REQUIRED_BUILD} stable`);
-
-  if(!patched.includes('ncr-ui-patch.js')){
-    patched=patched.replace('</body>',`<script src="./ncr-ui-patch.js?v=${REQUIRED_BUILD}"></script></body>`);
-  }else{
-    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,`ncr-ui-patch.js?v=${REQUIRED_BUILD}`);
-  }
-
-  if(!patched.includes('backup-zip-v10.js')){
-    patched=patched.replace('</body>',`<script src="./backup-zip-v10.js?v=${REQUIRED_BUILD}"></script></body>`);
-  }else{
-    patched=patched.replace(/backup-zip-v10\.js(?:\?v=[^"'<> ]+)?/g,`backup-zip-v10.js?v=${REQUIRED_BUILD}`);
-  }
-
-  return new Response(patched,{
-    status:response.status,
-    statusText:response.statusText,
-    headers:{
-      'content-type':'text/html; charset=utf-8',
-      'cache-control':'no-store, no-cache, must-revalidate'
-    }
-  });
+  const patched=text.replace(/v7\.3 stable/g,'v10.2 stable').replace(/v7\.5 stable/g,'v10.2 stable');
+  return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
 }
 
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
   const url=new URL(event.request.url);
-  if(url.origin!==location.origin)return;
+  if(url.origin!==self.location.origin)return;
 
   if(event.request.mode==='navigate'){
-    event.respondWith((async()=>{
-      try{
-        const response=await fetch(event.request,{cache:'no-store'});
-        return await patchHtml(response);
-      }catch{
-        const cached=await caches.match('./index.html');
-        return await patchHtml(cached);
-      }
-    })());
+    event.respondWith(fetch(event.request,{cache:'no-store'}).then(versionOnly).catch(async()=>{
+      const cached=await caches.match('./index.html');
+      return cached?versionOnly(cached):new Response('Offline',{status:503});
+    }));
     return;
   }
 
-  if(url.pathname.endsWith('/ncr-ui-patch.js')||url.pathname.endsWith('/backup-zip-v10.js')){
+  if(url.pathname.endsWith('/backup-zip-v10.js')||url.pathname.endsWith('/ncr-ui-patch.js')){
     event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match(event.request)));
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached=>{
-      const network=fetch(event.request).then(response=>{
-        if(response && response.ok){
-          const copy=response.clone();
-          caches.open(CACHE).then(cache=>cache.put(event.request,copy));
-        }
-        return response;
-      });
-      return cached || network;
-    })
-  );
-});
-
-self.addEventListener('message',event=>{
-  if(event.data==='SKIP_WAITING')self.skipWaiting();
+  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
+    if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
+    return response;
+  })));
 });
