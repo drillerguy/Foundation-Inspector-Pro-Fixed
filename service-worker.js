@@ -1,45 +1,8 @@
-const CACHE='fieldverify-pro-v1021';
-const REQUIRED_BUILD='10.2';
-const CORE=['./','./index.html','./ncr-ui-patch.js','./backup-zip-v10.js','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'];
-
-self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting()));
-});
-
-self.addEventListener('activate',event=>{
-  event.waitUntil((async()=>{
-    const keys=await caches.keys();
-    await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
-    await self.clients.claim();
-  })());
-});
-
-async function versionOnly(response){
-  const text=await response.text();
-  const patched=text.replace(/v7\.3 stable/g,'v10.2 stable').replace(/v7\.5 stable/g,'v10.2 stable');
-  return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
-}
-
-self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET')return;
-  const url=new URL(event.request.url);
-  if(url.origin!==self.location.origin)return;
-
-  if(event.request.mode==='navigate'){
-    event.respondWith(fetch(event.request,{cache:'no-store'}).then(versionOnly).catch(async()=>{
-      const cached=await caches.match('./index.html');
-      return cached?versionOnly(cached):new Response('Offline',{status:503});
-    }));
-    return;
-  }
-
-  if(url.pathname.endsWith('/backup-zip-v10.js')||url.pathname.endsWith('/ncr-ui-patch.js')){
-    event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match(event.request)));
-    return;
-  }
-
-  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
-    if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
-    return response;
-  })));
-});
+const CACHE='fieldverify-pro-v1030';
+const REQUIRED_BUILD='10.3';
+const CORE=['./','./index.html','./ncr-ui-patch.js','./backup-zip-v10.js','./office-report-split-v103.js','./caisson-plan.png','./caisson-data.js','./xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(k!==CACHE)await caches.delete(k);await self.clients.claim()})()));
+async function page(r){const t=await r.text();return new Response(t.replace(/v7\.3 stable|v7\.5 stable|v10\.2 stable/g,'v10.3 stable'),{status:r.status,statusText:r.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}})}
+async function joined(){const a=await fetch('./backup-zip-v10.js',{cache:'no-store'}),b=await fetch('./office-report-split-v103.js',{cache:'no-store'});return new Response((await a.text())+'\n'+(await b.text()),{headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store'}})}
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==self.location.origin)return;if(e.request.mode==='navigate'){e.respondWith(fetch(e.request,{cache:'no-store'}).then(page).catch(async()=>page(await caches.match('./index.html'))));return}if(u.pathname.endsWith('/backup-zip-v10.js')){e.respondWith(joined().catch(()=>caches.match('./backup-zip-v10.js')));return}if(u.pathname.endsWith('/ncr-ui-patch.js')||u.pathname.endsWith('/office-report-split-v103.js')){e.respondWith(fetch(e.request,{cache:'no-store'}).catch(()=>caches.match(e.request)));return}e.respondWith(caches.match(e.request).then(x=>x||fetch(e.request)))});
