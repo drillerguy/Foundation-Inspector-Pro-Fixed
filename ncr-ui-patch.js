@@ -1,12 +1,16 @@
 (()=>{
-  const BUILD_VERSION='7.4';
+  const BUILD_VERSION='7.5';
   const KEY='fieldVerifyNcrMarkersVisible';
+  const SESSION_KEY='fieldVerifyLastSessionV75';
+  const BUILD_KEY='fieldVerifyInstalledBuild';
   let visible=localStorage.getItem(KEY)!=='false';
 
   function updateVersionHeader(){
     const title=document.querySelector('.top .title');
     if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD_VERSION} stable</span>`;
     document.title=`FieldVerify Pro v${BUILD_VERSION}`;
+    document.documentElement.setAttribute('data-fieldverify-version',BUILD_VERSION);
+    localStorage.setItem(BUILD_KEY,BUILD_VERSION);
   }
 
   function addStyles(){
@@ -55,6 +59,7 @@
       updateToggle();
       renderPins();
       toast(visible?'NCR / RFI map colors shown':'NCR / RFI map colors hidden');
+      saveSession();
     };
     const zoomOut=document.getElementById('zoomOut');
     controls.insertBefore(b,zoomOut||null);
@@ -148,9 +153,91 @@
     return result;
   };
 
+  function saveSession(){
+    try{
+      if(typeof persist==='function')persist();
+      if(typeof persistNcr==='function')persistNcr();
+
+      const shell=document.getElementById('mapShell');
+      const notes=document.getElementById('notes');
+      const filter=document.getElementById('itemFilter');
+      const snapshot={
+        version:BUILD_VERSION,
+        savedAt:new Date().toISOString(),
+        activeProjectId:typeof activeProjectId!=='undefined'?activeProjectId:null,
+        selected:typeof selected!=='undefined'?selected:null,
+        nearest:typeof nearest!=='undefined'?nearest:null,
+        filter:filter?filter.value:'',
+        notesDraft:notes?notes.value:null,
+        mapWidth:typeof mapWidth!=='undefined'?mapWidth:null,
+        scrollLeft:shell?shell.scrollLeft:0,
+        scrollTop:shell?shell.scrollTop:0,
+        ncrVisible:visible
+      };
+      localStorage.setItem(SESSION_KEY,JSON.stringify(snapshot));
+    }catch(err){
+      console.warn('FieldVerify autosave failed',err);
+    }
+  }
+
+  function restoreSession(){
+    try{
+      const raw=localStorage.getItem(SESSION_KEY);
+      if(!raw)return;
+      const s=JSON.parse(raw);
+
+      if(s.activeProjectId && typeof projects!=='undefined' && projects.some(p=>p.id===s.activeProjectId) && s.activeProjectId!==activeProjectId){
+        activeProjectId=s.activeProjectId;
+        if(typeof saveProjects==='function')saveProjects();
+        if(typeof loadRecords==='function')loadRecords();
+      }
+
+      const filter=document.getElementById('itemFilter');
+      if(filter && typeof s.filter==='string')filter.value=s.filter;
+
+      if(s.selected!=null)selected=s.selected;
+      if(s.nearest!=null)nearest=s.nearest;
+      if(typeof s.ncrVisible==='boolean'){
+        visible=s.ncrVisible;
+        localStorage.setItem(KEY,String(visible));
+      }
+
+      if(Number.isFinite(Number(s.mapWidth)) && typeof setMapWidth==='function'){
+        setTimeout(()=>setMapWidth(Number(s.mapWidth)),100);
+      }
+
+      setTimeout(()=>{
+        if(typeof renderPins==='function')renderPins();
+        if(typeof showTarget==='function')showTarget();
+        installToggle();
+        updateToggle();
+
+        const notes=document.getElementById('notes');
+        if(notes && s.notesDraft!=null && !notes.value)notes.value=s.notesDraft;
+
+        const shell=document.getElementById('mapShell');
+        if(shell) shell.scrollTo({left:Number(s.scrollLeft)||0,top:Number(s.scrollTop)||0,behavior:'auto'});
+      },180);
+    }catch(err){
+      console.warn('FieldVerify session restore failed',err);
+    }
+  }
+
+  function installAutosave(){
+    setInterval(saveSession,30000);
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden)saveSession();
+    });
+    window.addEventListener('pagehide',saveSession);
+    window.addEventListener('beforeunload',saveSession);
+    window.addEventListener('freeze',saveSession);
+  }
+
   updateVersionHeader();
   addStyles();
   installToggle();
   addReasonToNotes();
+  restoreSession();
+  installAutosave();
   renderPins();
 })();
