@@ -1,9 +1,10 @@
-const CACHE='fieldverify-pro-v75-lock-1';
-const REQUIRED_BUILD='7.5';
+const CACHE='fieldverify-pro-v102-lock-1';
+const REQUIRED_BUILD='10.2';
 const CORE=[
   './',
   './index.html',
   './ncr-ui-patch.js',
+  './backup-zip-v10.js',
   './caisson-plan.png',
   './caisson-data.js',
   './xlsx.full.min.js',
@@ -40,10 +41,21 @@ async function patchHtml(response){
   const text=await response.text();
   let patched=text;
 
+  // Keep the version shown at the top of the app synchronized with this deployed build.
+  patched=patched.replace(/v7\.3 stable/g,`v${REQUIRED_BUILD} stable`);
+  patched=patched.replace(/v7\.5 stable/g,`v${REQUIRED_BUILD} stable`);
+  patched=patched.replace(/v10\.2(?:\.0)? stable/g,`v${REQUIRED_BUILD} stable`);
+
   if(!patched.includes('ncr-ui-patch.js')){
-    patched=patched.replace('</body>','<script src="./ncr-ui-patch.js?v=7.5"></script></body>');
+    patched=patched.replace('</body>',`<script src="./ncr-ui-patch.js?v=${REQUIRED_BUILD}"></script></body>`);
   }else{
-    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,'ncr-ui-patch.js?v=7.5');
+    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,`ncr-ui-patch.js?v=${REQUIRED_BUILD}`);
+  }
+
+  if(!patched.includes('backup-zip-v10.js')){
+    patched=patched.replace('</body>',`<script src="./backup-zip-v10.js?v=${REQUIRED_BUILD}"></script></body>`);
+  }else{
+    patched=patched.replace(/backup-zip-v10\.js(?:\?v=[^"'<> ]+)?/g,`backup-zip-v10.js?v=${REQUIRED_BUILD}`);
   }
 
   return new Response(patched,{
@@ -74,8 +86,8 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  if(url.pathname.endsWith('/ncr-ui-patch.js')){
-    event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match('./ncr-ui-patch.js')));
+  if(url.pathname.endsWith('/ncr-ui-patch.js')||url.pathname.endsWith('/backup-zip-v10.js')){
+    event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match(event.request)));
     return;
   }
 
