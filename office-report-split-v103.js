@@ -1,10 +1,10 @@
-/* FieldVerify Pro office report splitter v10.3.0
+/* FieldVerify Pro office report splitter v10.3.1
    Builds Send PDF to Office reports and automatically splits oversized reports
    into email/text-friendly numbered PDF parts.
 */
 (() => {
   'use strict';
-  const OFFICE_SPLIT_VERSION = '10.3.0';
+  const OFFICE_SPLIT_VERSION = '10.3.1';
   const TARGET_BYTES = 18 * 1024 * 1024;
   const HARD_BYTES = 20 * 1024 * 1024;
   let pendingOfficeFiles = [];
@@ -57,10 +57,20 @@
       for(const [key,label] of inspectionFields(r)) if(inspection[key]) put(`${label}: ${inspection[key]}`);
       put('Notes',12,true);put(r.notes||'No field notes');
       const itemNcrs=ncrsForCaisson(n);
+      if(itemNcrs.length) put('NCR Information',12,true);
       for(const {row,id} of itemNcrs){
-        put(`${id}: ${statusText(row)}`,11,true);
-        put(`Issue: ${findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed'}`);
-        put(`Correction: ${findField(row,['Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed'}`);
+        const issue=findField(row,['Description','NCR Description','Issue Description','Issue'])||'Not listed';
+        const correction=findField(row,['Proposed Fix','Proposed Corrective Action','Proposed Correction','Proposed Repair','Description.1','Resolution / Engineer Direction','Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required'])||'Not listed';
+        const rfi=findField(row,['RFI Status','RFI','RFI Number'])||'Not listed';
+        const ball=findField(row,['Ball in Court','Responsible Party','Owner'])||'Not listed';
+        const sug=findField(row,['SUG work','SUG Required Work','SUG Work','Work Required'])||'Not listed';
+        put(`NCR #: ${id}`,11,true);
+        put(`Status: ${statusText(row)}`);
+        put(`Issue: ${issue}`);
+        put(`Proposed Fix / Corrective Action: ${correction}`);
+        put(`RFI Status: ${rfi}`);
+        put(`Ball in Court: ${ball}`);
+        put(`SUG Required Work: ${sug}`);
       }
       const photos=await getPhotos(n);put(`Photos: ${photos.length}`,11,true);
       for(const photo of photos){
@@ -150,6 +160,6 @@
 
   const shareBtn=document.getElementById('shareNowBtn');if(shareBtn)shareBtn.onclick=sharePendingOfficeFile;
   try{bindTools()}catch{}
-  window.FIELDVERIFY_OFFICE_SPLIT={version:OFFICE_SPLIT_VERSION,targetMB:18,hardMB:20};
-  console.info(`FieldVerify office splitter v${OFFICE_SPLIT_VERSION} loaded`);
+  window.FIELDVERIFY_OFFICE_SPLIT={version:OFFICE_SPLIT_VERSION,targetMB:18,hardMB:20,ncrDetails:true};
+  console.info(`FieldVerify office splitter v${OFFICE_SPLIT_VERSION} loaded · full NCR details`);
 })();
