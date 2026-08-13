@@ -310,12 +310,63 @@
     };
   }
 
+  // NCR display patch: keep corrective direction separate from normal field notes
+  // and recognize common register headings for proposed/corrective fixes.
+  ncrSummaryHtml = function proposedFixNcrSummaryHtml(n) {
+    const list = ncrsForCaisson(n);
+    const manual = rec(n).ncrManualStatus || '';
+    const selector = `<div class="ncr-manual">
+      <label class="label">NCR STATUS FOR THIS ITEM</label>
+      <select class="field" onchange="updateManualNcrStatus(${n},this.value)">
+        <option value="" ${manual === '' ? 'selected' : ''}>Use imported spreadsheet status</option>
+        <option value="open" ${manual === 'open' ? 'selected' : ''}>Open</option>
+        <option value="pending" ${manual === 'pending' ? 'selected' : ''}>Pending review / RFI</option>
+        <option value="corrected-waiting" ${manual === 'corrected-waiting' ? 'selected' : ''}>Corrected — waiting for acceptance</option>
+        <option value="cleared" ${manual === 'cleared' ? 'selected' : ''}>Cleared</option>
+      </select>
+      <div class="tiny" style="margin-top:5px">Current map color: <b>${ncrStateLabel(n)}</b></div>
+    </div>`;
+
+    if (!ncrRows.length) return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="notice">No NCR spreadsheet has been imported. Tap <b>Import NCR Excel File</b> below when you receive the current register.</div>${selector}</div>`;
+    if (!list.length) return `<div class="card"><h2 style="font-size:17px">NCR Information</h2><div class="tiny">No imported NCR lists ${esc(itemName(n, rec(n)))}.</div>${selector}</div>`;
+
+    return `<div class="card"><h2 style="font-size:17px">NCR Information — ${list.length} Found</h2>
+      <div class="statusrow"><span class="pill ${effectiveNcrState(n) === 'cleared' ? 'green' : ''}">Map status: ${ncrStateLabel(n)}</span></div>
+      ${list.map(({ row, id }) => {
+        const issue = findField(row, ['Description', 'NCR Description', 'Issue Description', 'Issue']);
+        const correction = findField(row, [
+          'Proposed Fix', 'Proposed Corrective Action', 'Proposed Correction', 'Proposed Repair',
+          'Corrective Description', 'Corrective Action', 'Correction Required', 'SUG Work', 'Work Required'
+        ]);
+        const rfi = findField(row, ['RFI Status', 'RFI', 'RFI Number']);
+        const ball = findField(row, ['Ball in Court', 'Responsible Party', 'Owner']);
+        const pdfKey = `ncrpdf:${id}`;
+        const hasPdf = localStorage.getItem(pdfKey) === 'yes';
+        return `<div class="ncr-card ${isClosedNcr(row) ? 'closed' : ''}">
+          <div class="ncr-title"><span>${esc(id)}</span><span class="ncr-status">${esc(statusText(row))}</span></div>
+          ${issue ? `<div class="label">Issue</div><div>${esc(issue)}</div>` : ''}
+          <div style="margin-top:10px;padding:10px;border-radius:10px;background:#fff;border:2px solid #d49300">
+            <div style="font-size:12px;font-weight:900;color:#7a5200;text-transform:uppercase;letter-spacing:.3px">Proposed Fix / Corrective Action</div>
+            <div style="margin-top:5px;font-size:15px;font-weight:800;line-height:1.35">${esc(correction || 'Not listed in the NCR register')}</div>
+          </div>
+          ${rfi ? `<div class="label">RFI</div><div>${esc(rfi)}</div>` : ''}
+          ${ball ? `<div class="label">Ball in court</div><div>${esc(ball)}</div>` : ''}
+          <div class="row" style="margin-top:8px">
+            <button class="next" style="padding:10px" onclick="attachNcrPdf('${esc(id)}')">${hasPdf ? 'Replace NCR PDF' : 'Attach NCR PDF'}</button>
+            <button class="next" style="padding:10px" onclick="openNcrPdf('${esc(id)}')" ${hasPdf ? '' : 'disabled'}>Open NCR PDF</button>
+          </div>
+        </div>`;
+      }).join('')}
+      ${selector}</div>`;
+  };
+
   try { bindTools(); } catch {}
 
   window.FIELDVERIFY_BACKUP_PATCH = {
     version: PATCH_VERSION,
     photoSafe: true,
     multiRestore: true,
+    ncrProposedFix: true,
     verify: async () => {
       const result = await buildProjectBackup();
       return result.payload.photoBackup;
@@ -323,5 +374,5 @@
     restoreMany
   };
 
-  console.info(`FieldVerify backup patch v${PATCH_VERSION} loaded · photo-safe + multi-file restore`);
+  console.info(`FieldVerify backup patch v${PATCH_VERSION} loaded · photo-safe + multi-file restore + NCR proposed fix`);
 })();
