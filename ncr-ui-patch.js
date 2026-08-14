@@ -1,7 +1,7 @@
 (()=>{
-  const BUILD_VERSION='10.5';
+  const BUILD_VERSION='10.6';
   const KEY='fieldVerifyNcrMarkersVisible';
-  const SESSION_KEY='fieldVerifyLastSessionV105';
+  const SESSION_KEY='fieldVerifyLastSessionV106';
   const BUILD_KEY='fieldVerifyInstalledBuild';
   let visible=localStorage.getItem(KEY)!=='false';
 
@@ -28,6 +28,9 @@
       .ncr-excel-detail.closed .ncr-excel-status{background:#ccebd5;color:#12642f}
       .ncr-excel-reason{font-size:15px;font-weight:800;margin-top:5px;white-space:pre-wrap}
       .ncr-excel-value{white-space:pre-wrap}
+      .ncr-engineer-box{background:#eef5ff;border:1px solid #8eb6df;border-radius:10px;padding:9px;margin-top:9px}
+      .ncr-engineer-box .label{margin-top:0;color:#214f7b;font-weight:900}
+      .ncr-engineer-box .ncr-excel-value{font-size:15px;font-weight:800;color:#173d61}
     `;
     document.head.appendChild(style);
   }
@@ -72,7 +75,7 @@
 
   function reasonRows(n){
     return ncrsForCaisson(n).map(({row,id})=>{
-      const issue=field(row,['Description','NCR Description','Issue Description','Issue']);
+      const issue=field(row,['Description','NCR Description','Issue Description','Issue','Reason','NCR Reason']);
       return issue?{id,issue}:null;
     }).filter(Boolean);
   }
@@ -99,23 +102,31 @@
     return `<div class="card"><h2 style="font-size:17px">NCR Information — ${list.length} Found</h2>
       <div class="tiny" style="margin-bottom:8px">Information below is read directly from the imported NCR Excel file.</div>
       ${list.map(({row,id})=>{
-        const issue=field(row,['Description','NCR Description','Issue Description','Issue']);
+        const issue=field(row,['Description','NCR Description','Issue Description','Issue','Reason','NCR Reason']);
         const shafts=field(row,['Shafts Affected','Caissons Affected','Caisson','Shaft Number','Affected Shafts']);
-        const direction=field(row,['Description.1','Resolution / Engineer Direction','Corrective Description','Corrective Action','Correction Required','SUG Work','Work Required']);
-        const rfi=field(row,['RFI Status','RFI','RFI Number']);
-        const update=field(row,['Status 07/31/26','Current Update (07/31/26)','Current Update','Update']);
-        const ball=field(row,['Ball in Court','Responsible Party','Owner']);
-        const sug=field(row,['SUG work','SUG Required Work']);
+        const direction=field(row,['Resolution / Engineer Direction','Engineer Direction','Engineer Suggested Correction','Engineers Suggested Correction',"Engineer's Suggested Correction",'Suggested Correction','Suggested Corrective Action','Proposed Correction','Proposed Fix','Recommended Correction','Corrective Description','Corrective Action','Correction Required','Work Required','Disposition','Resolution','Design Team Response','Engineer Response','RME Response','SOM / RME Response','Description.1']);
+        const rfi=field(row,['RFI Status','RFI','RFI Number','RFI #']);
+        const ncrStatus=field(row,['NCR Status']);
+        const update=field(row,['Status 07/31/26','Current Update (07/31/26)','Current Update','Update','Latest Update']);
+        const ball=field(row,['Ball in Court','Responsible Party','Owner','Responsibility']);
+        const sug=field(row,['SUG work','SUG Work','SUG Required Work','SUG Required Correction','Contractor Required Work']);
+        const notes=field(row,['Notes','Comments','Remarks','NCR Notes','Engineer Notes']);
+        const acc=field(row,['ACC ID','ID #','ACC Number','ACC #']);
+        const ref=field(row,['NCR / ACC Reference','NCR # as written on NCR followed by ACC number','NCR Reference','NCR Number']);
         const status=statusText(row);
         return `<div class="ncr-excel-detail ${isClosedNcr(row)?'closed':''}">
           <div class="ncr-excel-title"><span>NCR ${esc(id)}</span><span class="ncr-excel-status">${esc(status)}</span></div>
+          ${acc?`<div class="label">ACC ID</div><div class="ncr-excel-value">${esc(acc)}</div>`:''}
+          ${ref && String(ref)!==String(id)?`<div class="label">NCR / ACC REFERENCE</div><div class="ncr-excel-value">${esc(ref)}</div>`:''}
           ${issue?`<div class="label">WHY THIS NCR WAS ISSUED</div><div class="ncr-excel-reason">${esc(issue)}</div>`:''}
           ${shafts?`<div class="label">SHAFTS AFFECTED</div><div class="ncr-excel-value">${esc(shafts)}</div>`:''}
-          ${direction?`<div class="label">ENGINEER DIRECTION / REQUIRED CORRECTION</div><div class="ncr-excel-value">${esc(direction)}</div>`:''}
+          ${direction?`<div class="ncr-engineer-box"><div class="label">ENGINEER SUGGESTED CORRECTION / RESOLUTION</div><div class="ncr-excel-value">${esc(direction)}</div></div>`:''}
+          ${sug?`<div class="label">SUG REQUIRED WORK / PROPOSED FIX</div><div class="ncr-excel-value">${esc(sug)}</div>`:''}
           ${rfi?`<div class="label">RFI STATUS</div><div class="ncr-excel-value">${esc(rfi)}</div>`:''}
+          ${ncrStatus?`<div class="label">NCR STATUS</div><div class="ncr-excel-value">${esc(ncrStatus)}</div>`:''}
           ${update?`<div class="label">CURRENT UPDATE</div><div class="ncr-excel-value">${esc(update)}</div>`:''}
-          ${ball?`<div class="label">BALL IN COURT</div><div class="ncr-excel-value">${esc(ball)}</div>`:''}
-          ${sug?`<div class="label">SUG REQUIRED WORK</div><div class="ncr-excel-value">${esc(sug)}</div>`:''}
+          ${ball?`<div class="label">BALL IN COURT / RESPONSIBLE PARTY</div><div class="ncr-excel-value">${esc(ball)}</div>`:''}
+          ${notes?`<div class="label">NOTES / COMMENTS</div><div class="ncr-excel-value">${esc(notes)}</div>`:''}
         </div>`;
       }).join('')}
       ${selector}
