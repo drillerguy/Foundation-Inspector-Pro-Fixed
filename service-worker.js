@@ -1,5 +1,5 @@
-const CACHE='fieldverify-pro-v75-lock-2';
-const REQUIRED_BUILD='7.5';
+const CACHE='fieldverify-pro-v105-lock-1';
+const REQUIRED_BUILD='10.5';
 const CORE=[
   './',
   './index.html',
@@ -40,12 +40,12 @@ async function patchHtml(response){
   const text=await response.text();
   let patched=text;
 
-  patched=patched.replace(/v7\.3\s+stable/gi,'v7.5 stable');
+  patched=patched.replace(/v(?:7\.3|7\.5|10\.4)\s+stable/gi,'v10.5 stable');
 
   if(!patched.includes('ncr-ui-patch.js')){
-    patched=patched.replace('</body>','<script src="./ncr-ui-patch.js?v=7.5"></script></body>');
+    patched=patched.replace('</body>','<script src="./ncr-ui-patch.js?v=10.5"></script></body>');
   }else{
-    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,'ncr-ui-patch.js?v=7.5');
+    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,'ncr-ui-patch.js?v=10.5');
   }
 
   return new Response(patched,{
