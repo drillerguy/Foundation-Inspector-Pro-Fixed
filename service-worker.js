@@ -1,4 +1,4 @@
-const CACHE='fieldverify-pro-v105-lock-1';
+const CACHE='fieldverify-pro-v105-lock-2';
 const REQUIRED_BUILD='10.5';
 const CORE=[
   './',
@@ -43,7 +43,13 @@ async function patchHtml(response){
   patched=patched.replace(/v(?:7\.3|7\.5|10\.4)\s+stable/gi,'v10.5 stable');
 
   if(!patched.includes('ncr-ui-patch.js')){
-    patched=patched.replace('</body>','<script src="./ncr-ui-patch.js?v=10.5"></script></body>');
+    const closingBody=patched.toLowerCase().lastIndexOf('</body>');
+    const patchTag='<script src="./ncr-ui-patch.js?v=10.5"></script>';
+    if(closingBody>=0){
+      patched=patched.slice(0,closingBody)+patchTag+patched.slice(closingBody);
+    }else{
+      patched+=patchTag;
+    }
   }else{
     patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,'ncr-ui-patch.js?v=10.5');
   }
