@@ -1,13 +1,16 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>Send Foundation Report</title><style>:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#15202b;background:#eef2f6}*{box-sizing:border-box}body{margin:0}.top{background:#083a73;color:#fff;padding:calc(18px + env(safe-area-inset-top)) 16px 18px}.top h1{margin:0;font-size:25px}.top p{margin:6px 0 0;opacity:.9}.wrap{max-width:760px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #d5dde6;border-radius:16px;padding:18px;box-shadow:0 3px 14px #0001}.send{width:100%;border:0;border-radius:15px;padding:20px 16px;font-size:22px;font-weight:900;background:#b42318;color:#fff;box-shadow:0 5px 14px #0003}.send:disabled{opacity:.55}.status{margin-top:14px;line-height:1.45;font-size:16px}.small{margin-top:14px;color:#5d6975;line-height:1.45}.danger{color:#9d1c13;font-weight:800}</style></head><body><header class="top"><h1>Send Foundation Report</h1><p>One button. Sends everything currently stored on this phone, including saved pictures.</p></header><main class="wrap"><section class="card"><button id="send" class="send">SEND EVERYTHING WITH PICTURES</button><div id="status" class="status">Ready.</div><div class="small">This does not filter by date. It reads all saved inspection records and all photos still stored in the app on this phone, creates one PDF, and opens the iPhone Share Sheet.</div></section></main><script src="pdf-lib.min.js"></script><script>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>Send Foundation Report</title><style>:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#15202b;background:#eef2f6}*{box-sizing:border-box}body{margin:0}.top{background:#083a73;color:#fff;padding:calc(18px + env(safe-area-inset-top)) 16px 18px}.top h1{margin:0;font-size:25px}.top p{margin:6px 0 0;opacity:.9}.wrap{max-width:760px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #d5dde6;border-radius:16px;padding:18px;box-shadow:0 3px 14px #0001}.send{width:100%;border:0;border-radius:15px;padding:20px 16px;font-size:22px;font-weight:900;background:#b42318;color:#fff;box-shadow:0 5px 14px #0003}.send:disabled{opacity:.55}.status{margin-top:14px;line-height:1.45;font-size:16px}.small{margin-top:14px;color:#5d6975;line-height:1.45}.danger{color:#9d1c13;font-weight:800}</style></head><body><header class="top"><h1>Send Foundation Report</h1><p>One button. Sends everything currently stored on this phone, including saved pictures.</p></header><main class="wrap"><section class="card"><button id="send" class="send">SEND EVERYTHING WITH PICTURES</button><div id="status" class="status">Ready.</div><div class="small">This PDF is also a full recovery backup. It includes a machine-readable JSON backup attachment with the saved records and photo data, so FieldVerify Pro can restore directly from the PDF later.</div></section></main><script src="pdf-lib.min.js"></script><script>
 (function(){
 'use strict';
+const BACKUP_VERSION='10.13';
 const btn=document.getElementById('send'),status=document.getElementById('status');
 const text=v=>String(v==null?'':v).replace(/[—–]/g,'-').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[^\x20-\x7e\xa0-\xff]/g,'?');
 const lines=(value,max=82)=>{const words=text(value).replace(/\s+/g,' ').trim().split(' '),out=[];let line='';for(const word of words){if((line+' '+word).trim().length>max){if(line)out.push(line);line=word}else line=(line+' '+word).trim()}if(line)out.push(line);return out.length?out:['-']};
 function readRecords(){const merged={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k==='foundationInspectorRecords'||k==='ordCaissonRecords'||k&&k.startsWith('fieldVerifyProjectRecords:')){try{const obj=JSON.parse(localStorage.getItem(k)||'{}');if(obj&&typeof obj==='object')Object.assign(merged,obj)}catch(_){}}}return merged}
+function readJsonStorage(key,fallback){try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(_){return fallback}}
 function openDB(){return new Promise((resolve,reject)=>{const q=indexedDB.open('ordCaissonPhotos',3);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'})};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
 function getPhoto(store,id){return new Promise(resolve=>{const q=store.get(id);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>resolve(null)})}
+function blobToDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error||Error('Photo could not be encoded'));r.readAsDataURL(blob)})}
 async function blobToJpeg(blob){const url=URL.createObjectURL(blob);try{const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Photo could not be opened'));i.src=url});const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,scale=Math.min(1,1600/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*scale));c.height=Math.max(1,Math.round(h*scale));const ctx=c.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);const out=await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(Error('Photo conversion failed')),'image/jpeg',.82));return new Uint8Array(await out.arrayBuffer())}finally{URL.revokeObjectURL(url)}}
 function meaningful(r){return r&&(r.pickupTime||r.unloadTime||r.updated||r.notes||r.status&&r.status!=='No information'||r.inspection||r.lat!=null||r.lon!=null||(r.photos||[]).length)}
 async function buildAndShare(){
@@ -16,21 +19,41 @@ async function buildAndShare(){
  if(!items.length)throw Error('No saved inspection records were found on this phone.');
  const db=await openDB(),tx=db.transaction('photos'),store=tx.objectStore('photos');
  const {PDFDocument,StandardFonts,rgb}=PDFLib,pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- let page=pdf.addPage([612,792]);page.drawRectangle({x:0,y:0,width:612,height:792,color:rgb(.03,.23,.45)});page.drawText('Foundation Inspection Report',{x:74,y:470,size:25,font:bold,color:rgb(1,1,1)});page.drawText(new Date().toLocaleString(),{x:74,y:440,size:12,font,color:rgb(1,1,1)});page.drawText(`${items.length} saved inspection records`,{x:74,y:418,size:12,font,color:rgb(1,1,1)});
- let added=0,missing=0;
+ let page=pdf.addPage([612,792]);page.drawRectangle({x:0,y:0,width:612,height:792,color:rgb(.03,.23,.45)});page.drawText('Foundation Inspection Report',{x:74,y:470,size:25,font:bold,color:rgb(1,1,1)});page.drawText(new Date().toLocaleString(),{x:74,y:440,size:12,font,color:rgb(1,1,1)});page.drawText(`${items.length} saved inspection records`,{x:74,y:418,size:12,font,color:rgb(1,1,1)});page.drawText('RESTORABLE PDF BACKUP',{x:74,y:392,size:11,font:bold,color:rgb(1,1,1)});
+ let added=0,missing=0;const backupPhotos=[];
  for(let index=0;index<items.length;index++){
   const [id,r]=items[index];status.textContent=`Building record ${index+1} of ${items.length}...`;
   let p=pdf.addPage([612,792]),y=746;const put=(value,size=10,strong=false)=>{for(const line of lines(value,strong?68:84)){if(y<55){p=pdf.addPage([612,792]);y=746}p.drawText(line,{x:42,y,size,font:strong?bold:font,color:rgb(.04,.12,.2)});y-=size+5}};
-  const label=String(r.itemLabel||'').trim()||`${r.itemType||'Caisson'} ${id}`;put(label,17,true);put(`Status: ${r.status||'No information'}`);put(`Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'-'}`);put(`Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'-'}`);put(`Updated: ${r.updated?new Date(r.updated).toLocaleString():'-'}`);put(`GPS: ${r.lat!=null&&r.lon!=null?`${r.lat}, ${r.lon}`:'Not saved'}`);y-=8;put('Field Notes',12,true);put(r.notes||'No field notes entered.');
+  const label=String(r.itemLabel||'').trim()||`${r.itemType||'Caisson'} ${id}`;put(label,17,true);put(`Record ID: ${id}`);put(`Status: ${r.status||'No information'}`);put(`Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'-'}`);put(`Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'-'}`);put(`Updated: ${r.updated?new Date(r.updated).toLocaleString():'-'}`);put(`GPS: ${r.lat!=null&&r.lon!=null?`${r.lat}, ${r.lon}`:'Not saved'}`);y-=8;put('Field Notes',12,true);put(r.notes||'No field notes entered.');
   const ids=Array.isArray(r.photos)?r.photos:[];put(`Saved photo references: ${ids.length}`,10,true);
   for(let i=0;i<ids.length;i++){
    const photo=await getPhoto(store,ids[i]);if(!photo||!(photo.blob instanceof Blob)){missing++;continue}
-   try{status.textContent=`Adding picture ${added+1}...`;const jpg=await blobToJpeg(photo.blob),image=await pdf.embedJpg(jpg),dims=image.scale(Math.min(520/image.width,620/image.height,1)),pp=pdf.addPage([612,792]);pp.drawText(text(`${label} - Picture ${i+1}`),{x:42,y:750,size:11,font:bold,color:rgb(.04,.12,.2)});pp.drawImage(image,{x:(612-dims.width)/2,y:80+(640-dims.height)/2,width:dims.width,height:dims.height});added++}catch(_){missing++}
+   try{
+    status.textContent=`Adding picture ${added+1}...`;
+    let data=null;try{data=await blobToDataURL(photo.blob)}catch(_){}
+    if(data)backupPhotos.push({...photo,blob:undefined,data});
+    const jpg=await blobToJpeg(photo.blob),image=await pdf.embedJpg(jpg),dims=image.scale(Math.min(520/image.width,620/image.height,1)),pp=pdf.addPage([612,792]);pp.drawText(text(`${label} - Picture ${i+1}`),{x:42,y:750,size:11,font:bold,color:rgb(.04,.12,.2)});pp.drawImage(image,{x:(612-dims.width)/2,y:80+(640-dims.height)/2,width:dims.width,height:dims.height});added++
+   }catch(_){missing++}
   }
  }
- const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),name=`Foundation-Inspection-Report-${new Date().toISOString().slice(0,10)}.pdf`,file=new File([blob],name,{type:'application/pdf'});
- status.textContent=`Report ready: ${items.length} records, ${added} pictures${missing?`, ${missing} missing`:''}.`;
- if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({title:'Foundation Inspection Report',text:'Foundation inspection report with saved pictures.',files:[file]});return}
+ const payload={
+   version:13,
+   backupFormat:'FieldVerify Restorable PDF Backup',
+   backupPatchVersion:BACKUP_VERSION,
+   created:new Date().toISOString(),
+   records,
+   photos:backupPhotos,
+   ncrRows:readJsonStorage('foundationInspectorNcrData',[]),
+   activeProjectId:localStorage.getItem('fieldVerifyActiveProject')||'legacy',
+   projects:readJsonStorage('fieldVerifyProjects',[]),
+   photoBackup:{referenced:Object.values(records).reduce((n,r)=>n+(Array.isArray(r?.photos)?r.photos.length:0),0),embedded:backupPhotos.length,missing}
+ };
+ if(typeof pdf.attach!=='function')throw Error('This PDF engine cannot create restorable backup attachments.');
+ const jsonBytes=new TextEncoder().encode(JSON.stringify(payload));
+ await pdf.attach(jsonBytes,'FieldVerify-Pro-Recovery-Backup.json',{mimeType:'application/json',description:'Machine-readable FieldVerify Pro recovery backup'});
+ const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),name=`Foundation-Inspection-RESTORABLE-Backup-${new Date().toISOString().slice(0,10)}.pdf`,file=new File([blob],name,{type:'application/pdf'});
+ status.textContent=`Restorable PDF ready: ${items.length} records, ${backupPhotos.length} pictures embedded${missing?`, ${missing} missing`:''}.`;
+ if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({title:'Foundation Inspection Restorable Backup',text:'Foundation inspection report and restorable backup with saved pictures.',files:[file]});return}
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 btn.addEventListener('click',async()=>{btn.disabled=true;try{await buildAndShare()}catch(e){status.innerHTML='<span class="danger">'+text(e.message||e)+'</span>'}finally{btn.disabled=false}});
