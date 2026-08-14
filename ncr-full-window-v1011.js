@@ -1,34 +1,40 @@
 (()=>{
-  const BUILD_VERSION='10.11';
+  const BUILD_VERSION='10.12';
   const esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
   const clean=s=>String(s??'').replace(/\s+/g,' ').trim();
   const norm=s=>clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ');
-  const PREFERRED_HEADERS=[
-    'ACC ID',
-    'NCR / ACC Reference',
-    'Issue',
-    'Shafts Affected',
-    'Resolution / Engineer Direction',
-    'RFI Status',
-    'NCR Status',
-    'Current Update (07/31/26)',
-    'Ball in Court',
-    'SUG Required Work'
+
+  const FIELDS=[
+    ['ACC ID',['ACC ID','ID #','ACC Number','ACC #']],
+    ['NCR / ACC Reference',['NCR / ACC Reference','NCR # as written on NCR followed by ACC number','NCR Reference','NCR Number','NCR #','NCR']],
+    ['Issue',['Issue','Description','NCR Description','Issue Description','Reason','NCR Reason']],
+    ['Shafts Affected',['Shafts Affected','Caissons Affected','Affected Shafts','Shaft Number']],
+    ['Resolution / Engineer Direction',['Resolution / Engineer Direction','Engineer Direction','Engineer Suggested Correction','Engineers Suggested Correction',"Engineer's Suggested Correction",'Engineer Suggested Fix',"Engineer's Suggested Fix",'Suggested Correction','Suggested Corrective Action','Proposed Correction','Proposed Fix','Recommended Correction','Corrective Description','Corrective Action','Correction Required','Work Required','Disposition','Resolution','Design Team Response','Engineer Response','RME Response','SOM / RME Response','Description.1']],
+    ['RFI Status',['RFI Status','RFI','RFI Number','RFI #']],
+    ['NCR Status',['NCR Status','Current Status']],
+    ['Current Update (07/31/26)',['Current Update (07/31/26)','Status 07/31/26','Current Update','Update','Latest Update']],
+    ['Ball in Court',['Ball in Court','Responsible Party','Owner','Responsibility']],
+    ['SUG Required Work',['SUG Required Work','SUG work','SUG Work','SUG Required Correction','Contractor Required Work']]
   ];
 
-  function valueFor(row,header){
+  function valueFor(row,names){
     if(!row||typeof row!=='object')return '';
-    const hit=Object.entries(row).find(([k])=>norm(k)===norm(header));
-    return hit?hit[1]:'';
+    const entries=Object.entries(row);
+    for(const wanted of names){
+      const hit=entries.find(([k])=>norm(k)===norm(wanted));
+      if(hit&&clean(hit[1]))return hit[1];
+    }
+    return '';
   }
 
   function fullRows(row){
     const rows=[];
     const used=new Set();
-    for(const header of PREFERRED_HEADERS){
-      const hit=Object.keys(row||{}).find(k=>norm(k)===norm(header));
-      if(hit)used.add(hit);
-      rows.push([header,valueFor(row,header)]);
+    for(const [label,names] of FIELDS){
+      for(const key of Object.keys(row||{})){
+        if(names.some(name=>norm(key)===norm(name)))used.add(key);
+      }
+      rows.push([label,valueFor(row,names)]);
     }
     for(const [key,value] of Object.entries(row||{})){
       if(used.has(key))continue;
@@ -57,8 +63,8 @@
   };
 
   function install(){
-    if(typeof ncrSummaryHtml!=='function'||window.__fullNcrWindow1011)return;
-    window.__fullNcrWindow1011=true;
+    if(typeof ncrSummaryHtml!=='function'||window.__fullNcrWindow1012)return;
+    window.__fullNcrWindow1012=true;
     const previous=ncrSummaryHtml;
     ncrSummaryHtml=function(n){
       const base=previous(n);
@@ -74,6 +80,6 @@
     if(typeof showTarget==='function')showTarget();
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,80));
-  else setTimeout(install,80);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,100));
+  else setTimeout(install,100);
 })();
