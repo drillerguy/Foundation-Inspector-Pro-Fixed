@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD_VERSION='10.12';
+  const BUILD_VERSION='10.19';
   const clean=v=>String(v??'').replace(/\s+/g,' ').trim();
   const norm=v=>clean(v).toLowerCase().replace(/[^a-z0-9]+/g,' ');
 
@@ -34,8 +34,6 @@
     return hasKey(row,ID_HEADERS) && hasKey(row,SHAFT_HEADERS) && hasKey(row,NCR_CONTENT_HEADERS);
   }
 
-  // If an inspection/field spreadsheet was accidentally stored as NCR data, remove it.
-  // ncr-preload.js runs immediately after this script and restores the canonical NCR register.
   try{
     if(typeof ncrRows!=='undefined' && Array.isArray(ncrRows) && ncrRows.length){
       const sample=ncrRows.slice(0,Math.min(12,ncrRows.length));
@@ -48,8 +46,6 @@
     }
   }catch(err){console.warn('NCR data guard failed',err)}
 
-  // Replace the loose matcher so field records such as {Caisson Number, Status}
-  // can never be mistaken for NCR spreadsheet rows.
   if(typeof numbersIn==='function'){
     window.ncrsForCaisson=function(n){
       if(typeof ncrRows==='undefined'||!Array.isArray(ncrRows))return [];
