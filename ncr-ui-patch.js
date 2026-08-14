@@ -1,7 +1,7 @@
 (()=>{
-  const BUILD_VERSION='7.5';
+  const BUILD_VERSION='10.5';
   const KEY='fieldVerifyNcrMarkersVisible';
-  const SESSION_KEY='fieldVerifyLastSessionV75';
+  const SESSION_KEY='fieldVerifyLastSessionV105';
   const BUILD_KEY='fieldVerifyInstalledBuild';
   let visible=localStorage.getItem(KEY)!=='false';
 
