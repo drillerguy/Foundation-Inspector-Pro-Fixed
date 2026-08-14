@@ -1,12 +1,10 @@
-const CACHE='fieldverify-pro-v115-self-healing-update';
-const REQUIRED_BUILD='10.15';
+const CACHE='fieldverify-pro-v116-unified-worker';
+const REQUIRED_BUILD='10.16';
 const CORE=[
   './','./index.html','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./caisson-plan.png','./caisson-data.js',
   './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'
 ];
 
-// Cache files one at a time so one temporarily unavailable GitHub Pages asset
-// can never prevent a new service worker from installing.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   await Promise.allSettled(CORE.map(async url=>{
@@ -26,7 +24,6 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   for(const client of clients){
     try{client.postMessage({type:'FIELDVERIFY_BUILD',version:REQUIRED_BUILD,forceReload:true})}catch{}
-    // Force an open stale 10.12/10.14 page through the new worker immediately.
     try{await client.navigate(client.url)}catch{}
   }
 })()));
@@ -40,24 +37,24 @@ function injectBeforeRealBodyClose(html,tag){
 async function patchHtml(response){
   if(!response)return response;
   let patched=await response.text();
-  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11|10\.12|10\.13|10\.14)\s+stable/gi,'v10.15 stable');
+  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11|10\.12|10\.13|10\.14|10\.15)\s+stable/gi,'v10.16 stable');
   const tags=[
-    '<script src="./ncr-data-guard-v1012.js?v=10.15"></script>',
-    '<script src="./ncr-preload.js?v=10.15"></script>',
-    '<script src="./ncr-ui-patch.js?v=10.15"></script>',
-    '<script src="./ncr-import-fix-v108.js?v=10.15"></script>',
-    '<script src="./ncr-engineer-fix-v109.js?v=10.15"></script>',
-    '<script src="./ncr-full-window-v1011.js?v=10.15"></script>',
-    '<script src="./pdf-backup-v1014.js?v=10.15"></script>'
+    '<script src="./ncr-data-guard-v1012.js?v=10.16"></script>',
+    '<script src="./ncr-preload.js?v=10.16"></script>',
+    '<script src="./ncr-ui-patch.js?v=10.16"></script>',
+    '<script src="./ncr-import-fix-v108.js?v=10.16"></script>',
+    '<script src="./ncr-engineer-fix-v109.js?v=10.16"></script>',
+    '<script src="./ncr-full-window-v1011.js?v=10.16"></script>',
+    '<script src="./pdf-backup-v1014.js?v=10.16"></script>'
   ];
   for(const tag of tags){
     const file=tag.match(/src="\.\/(.*?)\?/)[1];
     const escaped=file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     const re=new RegExp(escaped+'(?:\\?v=[^"\\\'<> ]+)?','g');
-    if(patched.includes(file))patched=patched.replace(re,file+'?v=10.15');
+    if(patched.includes(file))patched=patched.replace(re,file+'?v=10.16');
     else patched=injectBeforeRealBodyClose(patched,tag);
   }
-  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.15');
+  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.16');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate'}});
 }
 
