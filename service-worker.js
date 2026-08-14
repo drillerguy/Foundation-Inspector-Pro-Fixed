@@ -1,4 +1,4 @@
-const CACHE='fieldverify-pro-v75-lock-1';
+const CACHE='fieldverify-pro-v75-lock-2';
 const REQUIRED_BUILD='7.5';
 const CORE=[
   './',
@@ -39,6 +39,8 @@ async function patchHtml(response){
   if(!response)return response;
   const text=await response.text();
   let patched=text;
+
+  patched=patched.replace(/v7\.3\s+stable/gi,'v7.5 stable');
 
   if(!patched.includes('ncr-ui-patch.js')){
     patched=patched.replace('</body>','<script src="./ncr-ui-patch.js?v=7.5"></script></body>');
