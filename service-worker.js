@@ -1,7 +1,7 @@
-const CACHE='fieldverify-pro-v113-restorable-pdf-backup';
-const REQUIRED_BUILD='10.13';
+const CACHE='fieldverify-pro-v114-restorable-all-pdfs';
+const REQUIRED_BUILD='10.14';
 const CORE=[
-  './','./index.html','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./caisson-plan.png','./caisson-data.js',
+  './','./index.html','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./caisson-plan.png','./caisson-data.js',
   './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'
 ];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
@@ -20,23 +20,24 @@ function injectBeforeRealBodyClose(html,tag){
 async function patchHtml(response){
   if(!response)return response;
   let patched=await response.text();
-  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11|10\.12)\s+stable/gi,'v10.13 stable');
+  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11|10\.12|10\.13)\s+stable/gi,'v10.14 stable');
   const tags=[
-    '<script src="./ncr-data-guard-v1012.js?v=10.13"></script>',
-    '<script src="./ncr-preload.js?v=10.13"></script>',
-    '<script src="./ncr-ui-patch.js?v=10.13"></script>',
-    '<script src="./ncr-import-fix-v108.js?v=10.13"></script>',
-    '<script src="./ncr-engineer-fix-v109.js?v=10.13"></script>',
-    '<script src="./ncr-full-window-v1011.js?v=10.13"></script>'
+    '<script src="./ncr-data-guard-v1012.js?v=10.14"></script>',
+    '<script src="./ncr-preload.js?v=10.14"></script>',
+    '<script src="./ncr-ui-patch.js?v=10.14"></script>',
+    '<script src="./ncr-import-fix-v108.js?v=10.14"></script>',
+    '<script src="./ncr-engineer-fix-v109.js?v=10.14"></script>',
+    '<script src="./ncr-full-window-v1011.js?v=10.14"></script>',
+    '<script src="./pdf-backup-v1014.js?v=10.14"></script>'
   ];
   for(const tag of tags){
     const file=tag.match(/src="\.\/(.*?)\?/)[1];
     const escaped=file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     const re=new RegExp(escaped+'(?:\\?v=[^"\\\'<> ]+)?','g');
-    if(patched.includes(file)) patched=patched.replace(re,file+'?v=10.13');
+    if(patched.includes(file)) patched=patched.replace(re,file+'?v=10.14');
     else patched=injectBeforeRealBodyClose(patched,tag);
   }
-  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.13');
+  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.14');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate'}});
 }
 self.addEventListener('fetch',event=>{
@@ -45,7 +46,7 @@ self.addEventListener('fetch',event=>{
   if(event.request.mode==='navigate'){
     event.respondWith((async()=>{try{return await patchHtml(await fetch(event.request,{cache:'no-store'}));}catch{return await patchHtml(await caches.match('./index.html'));}})()); return;
   }
-  if(/\/(ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011)\.js$/.test(url.pathname)){
+  if(/\/(ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011|pdf-backup-v1014)\.js$/.test(url.pathname)){
     event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match('./'+url.pathname.split('/').pop()))); return;
   }
   event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}return response;})));
