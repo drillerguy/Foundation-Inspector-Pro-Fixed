@@ -1,5 +1,5 @@
-const CACHE='fieldverify-pro-v117-unified-worker';
-const REQUIRED_BUILD='10.17';
+const CACHE='fieldverify-pro-v118-unified-worker';
+const REQUIRED_BUILD='10.18';
 const CORE=[
   './','./index.html','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./update-refresh-v1017.js','./caisson-plan.png','./caisson-data.js',
   './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'
@@ -37,25 +37,26 @@ function injectBeforeRealBodyClose(html,tag){
 async function patchHtml(response){
   if(!response)return response;
   let patched=await response.text();
-  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11|10\.12|10\.13|10\.14|10\.15|10\.16)\s+stable/gi,'v10.17 stable');
+  // Match ANY older 7.x or 10.x stable label so no old build can get stranded.
+  patched=patched.replace(/v(?:7|10)\.\d+(?:\.\d+)?\s+stable/gi,'v10.18 stable');
   const tags=[
-    '<script src="./ncr-data-guard-v1012.js?v=10.17"></script>',
-    '<script src="./ncr-preload.js?v=10.17"></script>',
-    '<script src="./ncr-ui-patch.js?v=10.17"></script>',
-    '<script src="./ncr-import-fix-v108.js?v=10.17"></script>',
-    '<script src="./ncr-engineer-fix-v109.js?v=10.17"></script>',
-    '<script src="./ncr-full-window-v1011.js?v=10.17"></script>',
-    '<script src="./pdf-backup-v1014.js?v=10.17"></script>',
-    '<script src="./update-refresh-v1017.js?v=10.17"></script>'
+    '<script src="./ncr-data-guard-v1012.js?v=10.18"></script>',
+    '<script src="./ncr-preload.js?v=10.18"></script>',
+    '<script src="./ncr-ui-patch.js?v=10.18"></script>',
+    '<script src="./ncr-import-fix-v108.js?v=10.18"></script>',
+    '<script src="./ncr-engineer-fix-v109.js?v=10.18"></script>',
+    '<script src="./ncr-full-window-v1011.js?v=10.18"></script>',
+    '<script src="./pdf-backup-v1014.js?v=10.18"></script>',
+    '<script src="./update-refresh-v1017.js?v=10.18"></script>'
   ];
   for(const tag of tags){
     const file=tag.match(/src="\.\/(.*?)\?/)[1];
     const escaped=file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     const re=new RegExp(escaped+'(?:\\?v=[^"\\\'<> ]+)?','g');
-    if(patched.includes(file))patched=patched.replace(re,file+'?v=10.17');
+    if(patched.includes(file))patched=patched.replace(re,file+'?v=10.18');
     else patched=injectBeforeRealBodyClose(patched,tag);
   }
-  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.17');
+  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.18');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate'}});
 }
 
