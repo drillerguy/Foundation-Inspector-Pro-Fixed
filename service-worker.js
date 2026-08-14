@@ -1,5 +1,5 @@
-const CACHE='fieldverify-pro-v112-ncr-data-fix';
-const REQUIRED_BUILD='10.12';
+const CACHE='fieldverify-pro-v113-restorable-pdf-backup';
+const REQUIRED_BUILD='10.13';
 const CORE=[
   './','./index.html','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./caisson-plan.png','./caisson-data.js',
   './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'
@@ -20,23 +20,23 @@ function injectBeforeRealBodyClose(html,tag){
 async function patchHtml(response){
   if(!response)return response;
   let patched=await response.text();
-  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11)\s+stable/gi,'v10.12 stable');
+  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9|10\.10|10\.11|10\.12)\s+stable/gi,'v10.13 stable');
   const tags=[
-    '<script src="./ncr-data-guard-v1012.js?v=10.12"></script>',
-    '<script src="./ncr-preload.js?v=10.12"></script>',
-    '<script src="./ncr-ui-patch.js?v=10.12"></script>',
-    '<script src="./ncr-import-fix-v108.js?v=10.12"></script>',
-    '<script src="./ncr-engineer-fix-v109.js?v=10.12"></script>',
-    '<script src="./ncr-full-window-v1011.js?v=10.12"></script>'
+    '<script src="./ncr-data-guard-v1012.js?v=10.13"></script>',
+    '<script src="./ncr-preload.js?v=10.13"></script>',
+    '<script src="./ncr-ui-patch.js?v=10.13"></script>',
+    '<script src="./ncr-import-fix-v108.js?v=10.13"></script>',
+    '<script src="./ncr-engineer-fix-v109.js?v=10.13"></script>',
+    '<script src="./ncr-full-window-v1011.js?v=10.13"></script>'
   ];
   for(const tag of tags){
     const file=tag.match(/src="\.\/(.*?)\?/)[1];
     const escaped=file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     const re=new RegExp(escaped+'(?:\\?v=[^"\\\'<> ]+)?','g');
-    if(patched.includes(file)) patched=patched.replace(re,file+'?v=10.12');
+    if(patched.includes(file)) patched=patched.replace(re,file+'?v=10.13');
     else patched=injectBeforeRealBodyClose(patched,tag);
   }
-  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.12');
+  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.13');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate'}});
 }
 self.addEventListener('fetch',event=>{
