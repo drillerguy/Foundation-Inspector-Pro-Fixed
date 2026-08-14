@@ -6,18 +6,18 @@
   'use strict';
   const PATCH_VERSION = '10.14';
 
-  if (typeof window.saveRestorablePdf !== 'function' || typeof window.buildProjectBackup !== 'function') {
+  if (typeof saveRestorablePdf !== 'function' || typeof buildProjectBackup !== 'function') {
     console.warn('PDF backup patch could not find the core PDF functions');
     return;
   }
 
-  const originalSaveRestorablePdf = window.saveRestorablePdf;
+  const originalSaveRestorablePdf = saveRestorablePdf;
 
   async function addBackupAttachment(file) {
     if (!(file instanceof Blob)) throw Error('Office PDF was not created');
     if (!window.PDFLib?.PDFDocument) throw Error('PDF engine did not load');
 
-    const { payload } = await window.buildProjectBackup();
+    const { payload } = await buildProjectBackup();
     payload.backupFormat = 'FieldVerify Restorable PDF Backup';
     payload.backupPatchVersion = PATCH_VERSION;
     payload.created = payload.created || new Date().toISOString();
@@ -35,22 +35,22 @@
     return new File([bytes], file.name, { type: 'application/pdf' });
   }
 
-  window.saveRestorablePdf = async function restorableEveryPdf(reason, items, shareToOffice = false) {
+  saveRestorablePdf = async function restorableEveryPdf(reason, items, shareToOffice = false) {
     const result = await originalSaveRestorablePdf(reason, items, shareToOffice);
 
     // Field logs and daily reports are already restorable in the core app.
     if (!shareToOffice) return result;
 
     try {
-      if (window.pendingOfficeFile) {
-        window.pendingOfficeFile = await addBackupAttachment(window.pendingOfficeFile);
+      if (pendingOfficeFile) {
+        pendingOfficeFile = await addBackupAttachment(pendingOfficeFile);
         const box = document.getElementById('shareReadyText');
-        if (box) box.textContent = `${window.pendingOfficeFile.name} is ready and includes a complete restore backup. Tap Share PDF Now and choose Mail, Messages, Drive, or Files.`;
-        if (typeof window.toast === 'function') window.toast('Office PDF ready - complete restore backup embedded');
+        if (box) box.textContent = `${pendingOfficeFile.name} is ready and includes a complete restore backup. Tap Share PDF Now and choose Mail, Messages, Drive, or Files.`;
+        if (typeof toast === 'function') toast('Office PDF ready - complete restore backup embedded');
       }
     } catch (err) {
       console.error('Could not embed office PDF backup', err);
-      if (typeof window.toast === 'function') window.toast(`Office PDF backup warning: ${err.message}`);
+      if (typeof toast === 'function') toast(`Office PDF backup warning: ${err.message}`);
     }
 
     return result;
