@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD_VERSION='10.12';
+  const BUILD_VERSION='10.20';
   const esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':'&quot;'}[m]));
   const clean=s=>String(s??'').replace(/\s+/g,' ').trim();
   const norm=s=>clean(s).toLowerCase().replace(/[^a-z0-9]+/g,' ');
