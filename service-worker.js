@@ -1,8 +1,9 @@
-const CACHE='fieldverify-pro-v105-lock-2';
-const REQUIRED_BUILD='10.5';
+const CACHE='fieldverify-pro-v106-lock-1';
+const REQUIRED_BUILD='10.6';
 const CORE=[
   './',
   './index.html',
+  './ncr-preload.js',
   './ncr-ui-patch.js',
   './caisson-plan.png',
   './caisson-data.js',
@@ -40,18 +41,25 @@ async function patchHtml(response){
   const text=await response.text();
   let patched=text;
 
-  patched=patched.replace(/v(?:7\.3|7\.5|10\.4)\s+stable/gi,'v10.5 stable');
+  patched=patched.replace(/v(?:7\.3|7\.5|10\.4|10\.5)\s+stable/gi,'v10.6 stable');
 
-  if(!patched.includes('ncr-ui-patch.js')){
-    const closingBody=patched.toLowerCase().lastIndexOf('</body>');
-    const patchTag='<script src="./ncr-ui-patch.js?v=10.5"></script>';
-    if(closingBody>=0){
-      patched=patched.slice(0,closingBody)+patchTag+patched.slice(closingBody);
-    }else{
-      patched+=patchTag;
-    }
+  const closingBody=patched.toLowerCase().lastIndexOf('</body>');
+  const preloadTag='<script src="./ncr-preload.js?v=10.6"></script>';
+  const patchTag='<script src="./ncr-ui-patch.js?v=10.6"></script>';
+
+  if(!patched.includes('ncr-preload.js')){
+    if(closingBody>=0)patched=patched.slice(0,closingBody)+preloadTag+patched.slice(closingBody);
+    else patched+=preloadTag;
   }else{
-    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,'ncr-ui-patch.js?v=10.5');
+    patched=patched.replace(/ncr-preload\.js(?:\?v=[^"'<> ]+)?/g,'ncr-preload.js?v=10.6');
+  }
+
+  const closingBody2=patched.toLowerCase().lastIndexOf('</body>');
+  if(!patched.includes('ncr-ui-patch.js')){
+    if(closingBody2>=0)patched=patched.slice(0,closingBody2)+patchTag+patched.slice(closingBody2);
+    else patched+=patchTag;
+  }else{
+    patched=patched.replace(/ncr-ui-patch\.js(?:\?v=[^"'<> ]+)?/g,'ncr-ui-patch.js?v=10.6');
   }
 
   return new Response(patched,{
@@ -82,8 +90,8 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  if(url.pathname.endsWith('/ncr-ui-patch.js')){
-    event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match('./ncr-ui-patch.js')));
+  if(url.pathname.endsWith('/ncr-ui-patch.js')||url.pathname.endsWith('/ncr-preload.js')){
+    event.respondWith(fetch(event.request,{cache:'no-store'}).catch(()=>caches.match(url.pathname.endsWith('/ncr-preload.js')?'./ncr-preload.js':'./ncr-ui-patch.js')));
     return;
   }
 
