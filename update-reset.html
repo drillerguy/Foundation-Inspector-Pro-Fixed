@@ -3,39 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<title>FieldVerify Pro Update Repair</title>
+<title>FieldVerify Pro Safari Repair</title>
 <style>
-:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#eef2f6;color:#15202b}*{box-sizing:border-box}body{margin:0}.top{background:#083a73;color:#fff;padding:calc(18px + env(safe-area-inset-top)) 18px 18px}.top h1{margin:0;font-size:24px}.wrap{max-width:680px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #d5dde6;border-radius:16px;padding:18px;box-shadow:0 3px 14px #0001}.status{font-size:18px;font-weight:800;line-height:1.45}.small{margin-top:12px;color:#596775;line-height:1.5}.good{color:#12642f}.bad{color:#9d1c13}.btn{width:100%;margin-top:16px;border:0;border-radius:14px;padding:16px;font-size:18px;font-weight:900;background:#083a73;color:#fff}
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#eef2f6;color:#15202b}*{box-sizing:border-box}body{margin:0}.top{background:#083a73;color:#fff;padding:calc(18px + env(safe-area-inset-top)) 18px 18px}.top h1{margin:0;font-size:24px}.wrap{max-width:680px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #d5dde6;border-radius:16px;padding:18px;box-shadow:0 3px 14px #0001}.status{font-size:18px;font-weight:800;line-height:1.45}.small{margin-top:12px;color:#596775;line-height:1.5}.warn{margin-top:14px;padding:12px;border-radius:12px;background:#fff4cc;border:1px solid #f0cc55;line-height:1.45}.good{color:#12642f}.bad{color:#9d1c13}.btn{display:block;width:100%;margin-top:16px;border:0;border-radius:14px;padding:16px;font-size:18px;font-weight:900;background:#083a73;color:#fff;text-align:center;text-decoration:none}.green{background:#16803d}
 </style>
 </head>
 <body>
-<header class="top"><h1>FieldVerify Pro Update Repair</h1></header>
-<main class="wrap"><section class="card"><div id="status" class="status">Starting safe update repair…</div><div class="small">This clears only old app caches and service-worker registrations. It does not delete inspection records, photos, NCR data, drawings, Local Storage, or IndexedDB.</div><button id="again" class="btn" hidden>TRY AGAIN</button></section></main>
+<header class="top"><h1>FieldVerify Pro Safari Repair</h1></header>
+<main class="wrap"><section class="card">
+<div class="warn"><b>IMPORTANT:</b> This repair must be opened in Safari. If you are seeing this inside GitHub, ChatGPT, or another app's built-in browser, choose <b>Open in Safari</b> or copy this page address and paste it into Safari.</div>
+<div id="status" class="status" style="margin-top:16px">Starting safe Safari update repair…</div>
+<div class="small">No manual refresh is required. This removes only old FieldVerify app caches and service-worker registrations. It does not delete inspection records, photos, NCR data, drawings, Local Storage, or IndexedDB.</div>
+<a id="openApp" class="btn green" href="./index.html?fresh=10.16" hidden>OPEN FIELDVERIFY PRO</a>
+<button id="again" class="btn" hidden>TRY REPAIR AGAIN</button>
+</section></main>
 <script>
 (async()=>{
  'use strict';
- const status=document.getElementById('status'),again=document.getElementById('again');
+ const status=document.getElementById('status'),again=document.getElementById('again'),openApp=document.getElementById('openApp');
  const set=(m,c='')=>{status.className='status '+c;status.textContent=m};
  async function repair(){
-   again.hidden=true;
+   again.hidden=true;openApp.hidden=true;
    try{
      set('1 of 4 — Removing old service workers…');
      if('serviceWorker' in navigator){
        const regs=await navigator.serviceWorker.getRegistrations();
        await Promise.all(regs.map(r=>r.unregister().catch(()=>false)));
      }
-
      set('2 of 4 — Removing old app caches…');
      if('caches' in window){
        const keys=await caches.keys();
        await Promise.all(keys.map(k=>caches.delete(k).catch(()=>false)));
      }
-
      set('3 of 4 — Installing the current FieldVerify Pro worker…');
      if(!('serviceWorker' in navigator)) throw Error('This browser does not support service workers.');
      const reg=await navigator.serviceWorker.register('./service-worker.js?build=10.16&reset='+Date.now(),{scope:'./',updateViaCache:'none'});
      try{await reg.update()}catch{}
-
      let worker=reg.installing||reg.waiting||reg.active;
      if(worker&&worker.state!=='activated'){
        await new Promise(resolve=>{
@@ -45,12 +48,13 @@
        });
      }
      if(reg.waiting)try{reg.waiting.postMessage('SKIP_WAITING')}catch{}
-
-     set('4 of 4 — Opening the fresh app…','good');
-     const target='./index.html?fresh=10.16&t='+Date.now();
-     setTimeout(()=>location.replace(target),500);
+     set('Repair finished. Opening FieldVerify Pro now…','good');
+     openApp.href='./index.html?fresh=10.16&t='+Date.now();
+     openApp.hidden=false;
+     setTimeout(()=>location.replace(openApp.href),1200);
    }catch(err){
-     set('Update repair could not finish: '+(err&&err.message?err.message:err),'bad');
+     set('Repair could not finish: '+(err&&err.message?err.message:err),'bad');
+     openApp.hidden=false;
      again.hidden=false;
    }
  }
