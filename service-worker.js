@@ -1,5 +1,5 @@
-const CACHE='fieldverify-pro-v109-engineer-fix';
-const REQUIRED_BUILD='10.9';
+const CACHE='fieldverify-pro-v110-html-fix';
+const REQUIRED_BUILD='10.10';
 const CORE=[
   './','./index.html','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./caisson-plan.png','./caisson-data.js',
   './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'
@@ -12,22 +12,27 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   for(const client of clients) client.postMessage({type:'FIELDVERIFY_BUILD',version:REQUIRED_BUILD,forceReload:true});
 })()));
+function injectBeforeRealBodyClose(html,tag){
+  const lower=html.toLowerCase();
+  const at=lower.lastIndexOf('</body>');
+  return at>=0?html.slice(0,at)+tag+html.slice(at):html+tag;
+}
 async function patchHtml(response){
   if(!response)return response;
   let patched=await response.text();
-  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8)\s+stable/gi,'v10.9 stable');
+  patched=patched.replace(/v(?:7\.3|7\.5|7\.6|10\.4|10\.5|10\.6|10\.7|10\.8|10\.9)\s+stable/gi,'v10.10 stable');
   const tags=[
-    '<script src="./ncr-ui-patch.js?v=10.9"></script>',
-    '<script src="./ncr-import-fix-v108.js?v=10.9"></script>',
-    '<script src="./ncr-engineer-fix-v109.js?v=10.9"></script>'
+    '<script src="./ncr-ui-patch.js?v=10.10"></script>',
+    '<script src="./ncr-import-fix-v108.js?v=10.10"></script>',
+    '<script src="./ncr-engineer-fix-v109.js?v=10.10"></script>'
   ];
   for(const tag of tags){
     const file=tag.match(/src="\.\/(.*?)\?/)[1];
     const re=new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:\\?v=[^"\\\'<> ]+)?','g');
-    if(patched.includes(file)) patched=patched.replace(re,file+'?v=10.9');
-    else patched=patched.replace(/<\/body>/i,tag+'</body>');
+    if(patched.includes(file)) patched=patched.replace(re,file+'?v=10.10');
+    else patched=injectBeforeRealBodyClose(patched,tag);
   }
-  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.9');
+  patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.10');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate'}});
 }
 self.addEventListener('fetch',event=>{
