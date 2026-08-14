@@ -1,4 +1,4 @@
-const CACHE='fieldverify-pro-v119-unified-worker';
+const CACHE='fieldverify-pro-v120-unified-worker';
 const REQUIRED_BUILD='10.19';
 const CORE=[
   './','./index.html','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./pdf-photo-fix-v1019.js','./update-refresh-v1017.js','./caisson-plan.png','./caisson-data.js',
@@ -37,7 +37,6 @@ function injectBeforeRealBodyClose(html,tag){
 async function patchHtml(response){
   if(!response)return response;
   let patched=await response.text();
-  // Match ANY older 7.x or 10.x stable label so no old build can get stranded.
   patched=patched.replace(/v(?:7|10)\.\d+(?:\.\d+)?\s+stable/gi,'v10.19 stable');
   const tags=[
     '<script src="./ncr-data-guard-v1012.js?v=10.19"></script>',
