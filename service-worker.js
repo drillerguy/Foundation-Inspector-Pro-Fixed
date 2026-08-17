@@ -1,8 +1,8 @@
-const CACHE='fieldverify-pro-v125-cloud-sync';
+const CACHE='fieldverify-pro-v126-auth-reset';
 const REQUIRED_BUILD='10.24';
 const CORE=[
-  './','./index.html','./backup-zip-v10.js','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./pdf-photo-fix-v1019.js','./photo-integrity-v1021.js','./photo-recovery-import-v1023.js','./cloud-sync-v1024.js','./update-refresh-v1017.js','./version-lock-v1024.js','./caisson-plan.png','./caisson-data.js',
-  './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html'
+  './','./index.html','./backup-zip-v10.js','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./pdf-photo-fix-v1019.js','./photo-integrity-v1021.js','./photo-recovery-import-v1023.js','./cloud-sync-v1024.js','./cloud-auth-fix-v1025.js','./update-refresh-v1017.js','./version-lock-v1024.js','./caisson-plan.png','./caisson-data.js',
+  './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html','./password-reset.html'
 ];
 
 self.addEventListener('install',event=>event.waitUntil((async()=>{
@@ -53,6 +53,7 @@ async function patchHtml(response){
     '<script src="./photo-integrity-v1021.js?v=10.24"></script>',
     '<script src="./photo-recovery-import-v1023.js?v=10.24"></script>',
     '<script src="./cloud-sync-v1024.js?v=10.24"></script>',
+    '<script src="./cloud-auth-fix-v1025.js?v=10.24"></script>',
     '<script src="./update-refresh-v1017.js?v=10.24"></script>',
     '<script src="./version-lock-v1024.js?v=10.24"></script>'
   ];
@@ -78,7 +79,7 @@ self.addEventListener('fetch',event=>{
     })());
     return;
   }
-  if(/\/(backup-zip-v10|ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011|pdf-backup-v1014|pdf-photo-fix-v1019|photo-integrity-v1021|photo-recovery-import-v1023|cloud-sync-v1024|update-refresh-v1017|version-lock-v1024)\.js$/.test(url.pathname)){
+  if(/\/(backup-zip-v10|ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011|pdf-backup-v1014|pdf-photo-fix-v1019|photo-integrity-v1021|photo-recovery-import-v1023|cloud-sync-v1024|cloud-auth-fix-v1025|update-refresh-v1017|version-lock-v1024)\.js$/.test(url.pathname)){
     event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{
       if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put('./'+url.pathname.split('/').pop(),copy))}
       return response;
