@@ -1,0 +1,64 @@
+name: Fix FieldVerify 10.24 First Load
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-first-load-1024.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-first-load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch source without touching report templates
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # Make the raw GitHub Pages source identify itself as 10.24 immediately.
+          s = s.replace('v7.3 stable', 'v10.24 stable')
+          s = s.replace("navigator.serviceWorker.register('./service-worker.js')", "navigator.serviceWorker.register('./service-worker.js?v=10.24', {updateViaCache:'none'})")
+
+          # Only modify the REAL final body close, never </body> strings inside JS report templates.
+          final_close = '</body>\n</html>'
+          if final_close not in s:
+              raise SystemExit('Could not find final body close')
+
+          prefix, suffix = s.rsplit(final_close, 1)
+
+          scripts = [
+              'backup-zip-v10.js',
+              'ncr-data-guard-v1012.js',
+              'ncr-preload.js',
+              'ncr-ui-patch.js',
+              'ncr-import-fix-v108.js',
+              'ncr-engineer-fix-v109.js',
+              'ncr-full-window-v1011.js',
+              'pdf-backup-v1014.js',
+              'pdf-photo-fix-v1019.js',
+              'photo-integrity-v1021.js',
+              'photo-recovery-import-v1023.js',
+              'cloud-sync-v1024.js',
+              'update-refresh-v1017.js',
+              'version-lock-v1024.js',
+          ]
+
+          # Remove the old one-file bootstrap from the real page tail only.
+          prefix = prefix.replace('<script src="backup-zip-v10.js"></script>\n', '')
+          tags = '\n'.join(f'<script src="./{name}?v=10.24"></script>' for name in scripts)
+          s = prefix.rstrip() + '\n' + tags + '\n' + final_close + suffix
+          p.write_text(s, encoding='utf-8')
+
+      - name: Remove one-time workflow and commit
+        run: |
+          rm -f .github/workflows/fix-first-load-1024.yml
+          git config user.name "FieldVerify Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html .github/workflows/fix-first-load-1024.yml
+          git commit -m "Make FieldVerify 10.24 load correctly on first open"
+          git push
