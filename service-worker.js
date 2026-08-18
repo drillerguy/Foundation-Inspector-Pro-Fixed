@@ -1,4 +1,4 @@
-const CACHE='fieldverify-pro-v131-gps-robust-controls';
+const CACHE='fieldverify-pro-v132-no-startup-flash';
 const REQUIRED_BUILD='10.24';
 const CORE=[
   './','./index.html','./backup-zip-v10.js','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./pdf-photo-fix-v1019.js','./photo-integrity-v1021.js','./photo-recovery-import-v1023.js','./cloud-sync-v1024.js','./cloud-auth-fix-v1025.js','./cloud-access-v1026.js','./photo-viewer-v1027.js','./gps-live-v1028.js','./update-refresh-v1017.js','./version-lock-v1024.js','./caisson-plan.png','./caisson-data.js',
@@ -21,10 +21,13 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys();
   await Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)));
   await self.clients.claim();
+
+  // IMPORTANT: do not navigate/reload open windows here. The previous worker
+  // forced every open app window to navigate during activation, which caused
+  // the old UI to appear briefly and then flash/reload into the new UI.
   const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   for(const client of clients){
-    try{client.postMessage({type:'FIELDVERIFY_BUILD',version:REQUIRED_BUILD,forceReload:true})}catch{}
-    try{await client.navigate(client.url)}catch{}
+    try{client.postMessage({type:'FIELDVERIFY_BUILD',version:REQUIRED_BUILD,forceReload:false})}catch{}
   }
 })()));
 
@@ -75,21 +78,40 @@ self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
   const url=new URL(event.request.url);
   if(url.origin!==location.origin)return;
+
   if(event.request.mode==='navigate'){
     event.respondWith((async()=>{
-      try{return await patchHtml(await fetch(event.request,{cache:'no-store'}))}
-      catch{return await patchHtml(await caches.match('./index.html'))}
+      try{
+        // Always prefer the network for the app shell so a stale cached page
+        // is never painted first. Save the successful current shell only as
+        // an offline fallback for the next truly-offline launch.
+        const network=await fetch(event.request,{cache:'no-store'});
+        const patched=await patchHtml(network);
+        if(patched&&patched.ok){
+          try{
+            const cache=await caches.open(CACHE);
+            await cache.put('./index.html',patched.clone());
+            await cache.put('./',patched.clone());
+          }catch{}
+        }
+        return patched;
+      }catch{
+        const cached=await caches.match('./index.html',{cacheName:CACHE})||await caches.match('./',{cacheName:CACHE});
+        return cached?patchHtml(cached):new Response('FieldVerify Pro is offline and no saved app shell is available yet.',{status:503,headers:{'content-type':'text/plain; charset=utf-8'}});
+      }
     })());
     return;
   }
+
   if(/\/(backup-zip-v10|ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011|pdf-backup-v1014|pdf-photo-fix-v1019|photo-integrity-v1021|photo-recovery-import-v1023|cloud-sync-v1024|cloud-auth-fix-v1025|cloud-access-v1026|photo-viewer-v1027|gps-live-v1028|update-refresh-v1017|version-lock-v1024)\.js$/.test(url.pathname)){
     event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{
       if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put('./'+url.pathname.split('/').pop(),copy))}
       return response;
-    }).catch(()=>caches.match('./'+url.pathname.split('/').pop())));
+    }).catch(()=>caches.match('./'+url.pathname.split('/').pop(),{cacheName:CACHE})));
     return;
   }
-  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
+
+  event.respondWith(caches.match(event.request,{cacheName:CACHE}).then(cached=>cached||fetch(event.request).then(response=>{
     if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy))}
     return response;
   })));
