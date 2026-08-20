@@ -1,12 +1,16 @@
-/* FieldVerify Pro office report splitter v10.3.1
+/* FieldVerify Pro office report splitter v10.3.2
    Builds Send PDF to Office reports and automatically splits oversized reports
    into email/text-friendly numbered PDF parts.
+
+   iPhone/iPad note: share one generated PDF File at a time and share the file
+   itself without a separate text payload. This is more reliable with Apple Mail
+   and prevents Mail from opening a draft without the PDF attachment.
 */
 (() => {
   'use strict';
-  const OFFICE_SPLIT_VERSION = '10.3.1';
-  const TARGET_BYTES = 18 * 1024 * 1024;
-  const HARD_BYTES = 20 * 1024 * 1024;
+  const OFFICE_SPLIT_VERSION = '10.3.2';
+  const TARGET_BYTES = 12 * 1024 * 1024;
+  const HARD_BYTES = 15 * 1024 * 1024;
   let pendingOfficeFiles = [];
 
   function safeName(value){return String(value||'Project').replace(/[^a-z0-9_-]+/gi,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')||'Project'}
@@ -40,7 +44,7 @@
     put('FieldVerify Pro - Office Report',20,true);
     put(project?.name||'Project',15,true);
     put(`Created: ${new Date().toLocaleString()}`);
-    put(`Part ${partNumber} of ${totalParts}` ,12,true);
+    put(`Part ${partNumber} of ${totalParts}`,12,true);
     put(`Inspection items in this part: ${items.length}`);
 
     for(let i=0;i<items.length;i++){
@@ -85,7 +89,7 @@
     }
     const bytes=await pdf.save();
     const suffix=totalParts>1?`-Part-${partNumber}-of-${totalParts}`:'';
-    return new File([bytes],`FieldVerify-Pro-${safeName(project?.name)}-Office-Report${suffix}-${new Date().toISOString().slice(0,10)}.pdf`,{type:'application/pdf'});
+    return new File([bytes],`FieldVerify-Pro-${safeName(project?.name)}-Office-Report${suffix}-${new Date().toISOString().slice(0,10)}.pdf`,{type:'application/pdf',lastModified:Date.now()});
   }
 
   async function itemWeight(item){
@@ -127,39 +131,69 @@
     return files;
   }
 
+  function updateShareReady(){
+    pendingOfficeFile=pendingOfficeFiles[0]||null;
+    if(!pendingOfficeFiles.length){$('shareReady').classList.add('hidden');return}
+    const first=pendingOfficeFiles[0];
+    const total=pendingOfficeFiles.reduce((s,f)=>s+f.size,0);
+    if(pendingOfficeFiles.length===1){
+      $('shareReadyText').textContent=`${first.name} is ${(first.size/1048576).toFixed(1)} MB. Tap Share PDF Now, then choose Mail. The PDF contains the report information and saved photos.`;
+    }else{
+      $('shareReadyText').textContent=`${pendingOfficeFiles.length} PDF parts remain (${(total/1048576).toFixed(1)} MB total). Share one part at a time so iPhone Mail keeps the PDF attached. Current: ${first.name}`;
+    }
+  }
+
   shareOfficeReport=async function splitOfficeReport(){
     const items=Object.entries(records).map(([n])=>({n:+n,r:rec(+n)})).sort((a,b)=>a.n-b.n);
     if(!items.length){toast('No saved project information to send');return}
     try{
-      toast('Preparing office report and checking file size…');
+      toast('Preparing office report and photos…');
       pendingOfficeFiles=await buildSizedFiles(items);
-      pendingOfficeFile=pendingOfficeFiles[0]||null;
-      const total=pendingOfficeFiles.reduce((s,f)=>s+f.size,0);
-      const sizes=pendingOfficeFiles.map(f=>`${(f.size/1048576).toFixed(1)} MB`).join(' + ');
-      $('shareReadyText').textContent=pendingOfficeFiles.length===1
-        ?`${pendingOfficeFiles[0].name} is ${(total/1048576).toFixed(1)} MB and ready to share.`
-        :`Report was automatically split into ${pendingOfficeFiles.length} PDFs: ${sizes}. Tap Share PDF Now to send all parts.`;
+      updateShareReady();
       $('shareReady').classList.remove('hidden');
-      toast(pendingOfficeFiles.length===1?'Office PDF ready':`Office report split into ${pendingOfficeFiles.length} parts`);
+      toast(pendingOfficeFiles.length===1?'Office PDF ready':`Office report split into ${pendingOfficeFiles.length} email-safe parts`);
     }catch(err){toast(`Office report failed: ${err.message}`)}
   };
 
   sharePendingOfficeFile=async function shareSplitOfficeFiles(){
-    const files=pendingOfficeFiles.length?pendingOfficeFiles:(pendingOfficeFile?[pendingOfficeFile]:[]);
-    if(!files.length){toast('Build the office report first');$('shareReady').classList.add('hidden');return}
-    if(navigator.share&&(!navigator.canShare||navigator.canShare({files}))){
+    const file=pendingOfficeFiles[0]||pendingOfficeFile;
+    if(!file){toast('Build the office report first');$('shareReady').classList.add('hidden');return}
+
+    // Share exactly one real PDF File and no separate text/url payload. On iOS,
+    // this is the most reliable route to Mail retaining the generated PDF.
+    const payload={files:[file]};
+    if(navigator.share&&(!navigator.canShare||navigator.canShare(payload))){
       try{
-        await navigator.share({title:`FieldVerify Pro - ${activeProject()?.name||'Project'}`,text:files.length>1?`Complete field inspection report in ${files.length} PDF parts.`:'Complete field inspection report.',files});
-        pendingOfficeFiles=[];pendingOfficeFile=null;$('shareReady').classList.add('hidden');toast('Project report shared');return;
-      }catch(err){if(err?.name==='AbortError'){toast('Sharing canceled');return}}
+        await navigator.share(payload);
+        if(pendingOfficeFiles.length) pendingOfficeFiles.shift();
+        else pendingOfficeFile=null;
+        if(pendingOfficeFiles.length){
+          updateShareReady();
+          $('shareReady').classList.remove('hidden');
+          toast(`${pendingOfficeFiles.length} PDF part${pendingOfficeFiles.length===1?'':'s'} still to share`);
+        }else{
+          pendingOfficeFile=null;
+          $('shareReady').classList.add('hidden');
+          toast('Project report shared');
+        }
+        return;
+      }catch(err){
+        if(err?.name==='AbortError'){toast('Sharing canceled');return}
+        console.warn('PDF share failed',err);
+        toast('Mail attachment share failed - saving PDF instead');
+      }
     }
-    for(const file of files) downloadFile(file);
-    pendingOfficeFiles=[];pendingOfficeFile=null;$('shareReady').classList.add('hidden');
-    toast(files.length>1?`${files.length} PDF parts saved to Downloads`:'PDF saved to Downloads');
+
+    downloadFile(file);
+    if(pendingOfficeFiles.length) pendingOfficeFiles.shift();
+    else pendingOfficeFile=null;
+    if(pendingOfficeFiles.length){updateShareReady();$('shareReady').classList.remove('hidden')}
+    else $('shareReady').classList.add('hidden');
+    toast('PDF saved to Downloads so it can be attached manually');
   };
 
   const shareBtn=document.getElementById('shareNowBtn');if(shareBtn)shareBtn.onclick=sharePendingOfficeFile;
   try{bindTools()}catch{}
-  window.FIELDVERIFY_OFFICE_SPLIT={version:OFFICE_SPLIT_VERSION,targetMB:18,hardMB:20,ncrDetails:true};
-  console.info(`FieldVerify office splitter v${OFFICE_SPLIT_VERSION} loaded · full NCR details`);
+  window.FIELDVERIFY_OFFICE_SPLIT={version:OFFICE_SPLIT_VERSION,targetMB:12,hardMB:15,ncrDetails:true,iosSingleFileShare:true};
+  console.info(`FieldVerify office splitter v${OFFICE_SPLIT_VERSION} loaded · iOS Mail attachment fix`);
 })();
