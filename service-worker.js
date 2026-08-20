@@ -1,7 +1,7 @@
-const CACHE='fieldverify-pro-v132-no-startup-flash';
+const CACHE='fieldverify-pro-v133-mail-attachment-fix';
 const REQUIRED_BUILD='10.24';
 const CORE=[
-  './','./index.html','./backup-zip-v10.js','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./pdf-photo-fix-v1019.js','./photo-integrity-v1021.js','./photo-recovery-import-v1023.js','./cloud-sync-v1024.js','./cloud-auth-fix-v1025.js','./cloud-access-v1026.js','./photo-viewer-v1027.js','./gps-live-v1028.js','./update-refresh-v1017.js','./version-lock-v1024.js','./caisson-plan.png','./caisson-data.js',
+  './','./index.html','./backup-zip-v10.js','./ncr-data-guard-v1012.js','./ncr-preload.js','./ncr-ui-patch.js','./ncr-import-fix-v108.js','./ncr-engineer-fix-v109.js','./ncr-full-window-v1011.js','./pdf-backup-v1014.js','./pdf-photo-fix-v1019.js','./photo-integrity-v1021.js','./photo-recovery-import-v1023.js','./office-report-split-v103.js','./cloud-sync-v1024.js','./cloud-auth-fix-v1025.js','./cloud-access-v1026.js','./photo-viewer-v1027.js','./gps-live-v1028.js','./update-refresh-v1017.js','./version-lock-v1024.js','./caisson-plan.png','./caisson-data.js',
   './xlsx.full.min.js','./pdf.min.mjs','./pdf.worker.min.mjs','./pdf-lib.min.js','./manifest.webmanifest','./recovery.html','./password-reset.html'
 ];
 
@@ -21,10 +21,6 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
   const keys=await caches.keys();
   await Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)));
   await self.clients.claim();
-
-  // IMPORTANT: do not navigate/reload open windows here. The previous worker
-  // forced every open app window to navigate during activation, which caused
-  // the old UI to appear briefly and then flash/reload into the new UI.
   const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
   for(const client of clients){
     try{client.postMessage({type:'FIELDVERIFY_BUILD',version:REQUIRED_BUILD,forceReload:false})}catch{}
@@ -55,6 +51,7 @@ async function patchHtml(response){
     '<script src="./pdf-photo-fix-v1019.js?v=10.24"></script>',
     '<script src="./photo-integrity-v1021.js?v=10.24"></script>',
     '<script src="./photo-recovery-import-v1023.js?v=10.24"></script>',
+    '<script src="./office-report-split-v103.js?v=10.24.1"></script>',
     '<script src="./cloud-sync-v1024.js?v=10.24"></script>',
     '<script src="./cloud-auth-fix-v1025.js?v=10.24"></script>',
     '<script src="./cloud-access-v1026.js?v=10.24"></script>',
@@ -67,7 +64,8 @@ async function patchHtml(response){
     const file=tag.match(/src="\.\/(.*?)\?/)[1];
     const escaped=file.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     const re=new RegExp(escaped+'(?:\\?v=[^"\\\'<> ]+)?','g');
-    if(patched.includes(file))patched=patched.replace(re,file+'?v=10.24');
+    const requestedVersion=file==='office-report-split-v103.js'?'10.24.1':'10.24';
+    if(patched.includes(file))patched=patched.replace(re,file+'?v='+requestedVersion);
     else patched=injectBeforeRealBodyClose(patched,tag);
   }
   patched=patched.replace(/ncr-engineer-fix-v108\.js(?:\?v=[^"\'<> ]+)?/g,'ncr-engineer-fix-v109.js?v=10.24');
@@ -82,9 +80,6 @@ self.addEventListener('fetch',event=>{
   if(event.request.mode==='navigate'){
     event.respondWith((async()=>{
       try{
-        // Always prefer the network for the app shell so a stale cached page
-        // is never painted first. Save the successful current shell only as
-        // an offline fallback for the next truly-offline launch.
         const network=await fetch(event.request,{cache:'no-store'});
         const patched=await patchHtml(network);
         if(patched&&patched.ok){
@@ -103,7 +98,7 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  if(/\/(backup-zip-v10|ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011|pdf-backup-v1014|pdf-photo-fix-v1019|photo-integrity-v1021|photo-recovery-import-v1023|cloud-sync-v1024|cloud-auth-fix-v1025|cloud-access-v1026|photo-viewer-v1027|gps-live-v1028|update-refresh-v1017|version-lock-v1024)\.js$/.test(url.pathname)){
+  if(/\/(backup-zip-v10|ncr-data-guard-v1012|ncr-preload|ncr-ui-patch|ncr-import-fix-v108|ncr-engineer-fix-v109|ncr-full-window-v1011|pdf-backup-v1014|pdf-photo-fix-v1019|photo-integrity-v1021|photo-recovery-import-v1023|office-report-split-v103|cloud-sync-v1024|cloud-auth-fix-v1025|cloud-access-v1026|photo-viewer-v1027|gps-live-v1028|update-refresh-v1017|version-lock-v1024)\.js$/.test(url.pathname)){
     event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{
       if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put('./'+url.pathname.split('/').pop(),copy))}
       return response;
