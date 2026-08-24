@@ -1,11 +1,11 @@
 /* FieldVerify Pro v10.24 - project/category drawing manager
    Organizes uploaded drawings by project and work type, supports multiple
-   described drawings per category, and automatically switches drawings when
-   the top item-type filter changes.
+   described drawings per category, automatically switches drawings when
+   the top item-type filter changes, and allows drawings to be removed.
 */
 (()=>{
 'use strict';
-const VERSION='10.24-drawings-1';
+const VERSION='10.24-drawings-2';
 const CATEGORIES=['Caisson','ERS','Tieback','Footing','Column','Custom'];
 const META_KEY='fieldVerifyDrawingLibraryV1024';
 const ACTIVE_KEY='fieldVerifyActiveDrawingV1024';
@@ -25,37 +25,67 @@ function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)|
 function allMeta(){const x=readJson(META_KEY,[]);return Array.isArray(x)?x:[]}
 function saveMeta(x){localStorage.setItem(META_KEY,JSON.stringify(x))}
 function activeMap(){const x=readJson(ACTIVE_KEY,{});return x&&typeof x==='object'?x:{}}
-function setActive(category,id){const a=activeMap();a[`${projectId()}|${category}`]=id;localStorage.setItem(ACTIVE_KEY,JSON.stringify(a))}
+function setActive(category,id){const a=activeMap(),key=`${projectId()}|${category}`;if(id)a[key]=id;else delete a[key];localStorage.setItem(ACTIVE_KEY,JSON.stringify(a))}
 function getActive(category){return activeMap()[`${projectId()}|${category}`]||''}
 function library(category){return allMeta().filter(x=>x.projectId===projectId()&&x.category===category).sort((a,b)=>String(a.description).localeCompare(String(b.description)))}
 function uid(category){return `fieldverify-drawing:${projectId()}:${category.toLowerCase()}:${Date.now()}:${Math.random().toString(36).slice(2,8)}`}
 function cleanName(name){return String(name||'Drawing').replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim()||'Drawing'}
+function escapeHtml(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 
-// The existing drawing importer and renderer keep doing the heavy lifting.
-// We only change which IndexedDB settings key they read/write.
 drawingStorageId=function categorizedDrawingStorageId(){return activeStorageOverride||coreStorageId()};
 
 function ensureUi(){
   if(document.getElementById('drawingFilter'))return;
-  const s=document.createElement('select');s.id='drawingFilter';s.className='badge';s.setAttribute('aria-label','Drawing sheet');s.style.cssText='color:#fff;max-width:190px';
-  filter.insertAdjacentElement('afterend',s);
-  const style=document.createElement('style');style.textContent='#drawingFilter option{color:#111}.fv-drawing-modal{position:fixed;inset:0;z-index:900;background:#000a;display:grid;place-items:center;padding:18px}.fv-drawing-box{width:min(520px,100%);background:#fff;color:#16202a;border-radius:18px;padding:18px;box-shadow:0 12px 40px #0008}.fv-drawing-box h2{margin:0 0 8px}.fv-drawing-box label{display:block;font-size:12px;font-weight:900;margin-top:12px}.fv-drawing-box select,.fv-drawing-box input{width:100%;padding:12px;border:1px solid #c8d0d9;border-radius:10px;margin-top:5px}.fv-drawing-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.fv-drawing-actions button{padding:13px}.fv-drawing-save{background:#16803d;color:#fff}.fv-drawing-cancel{background:#e7edf4;color:#16202a}';document.head.appendChild(style);
+  const wrap=document.createElement('span');wrap.id='drawingSelectorWrap';wrap.style.cssText='display:inline-flex;gap:5px;align-items:center;max-width:285px';
+  const s=document.createElement('select');s.id='drawingFilter';s.className='badge';s.setAttribute('aria-label','Drawing sheet');s.style.cssText='color:#fff;max-width:190px;min-width:110px';
+  const del=document.createElement('button');del.id='deleteDrawingBtn';del.type='button';del.className='badge';del.title='Delete selected drawing';del.setAttribute('aria-label','Delete selected drawing');del.textContent='Delete';del.style.cssText='color:#fff;background:#b42318;border:1px solid #ffffff44;padding:5px 8px;font-size:11px;font-weight:900';
+  wrap.append(s,del);filter.insertAdjacentElement('afterend',wrap);
+  const style=document.createElement('style');style.textContent='#drawingFilter option{color:#111}.fv-drawing-modal{position:fixed;inset:0;z-index:900;background:#000a;display:grid;place-items:center;padding:18px}.fv-drawing-box{width:min(520px,100%);background:#fff;color:#16202a;border-radius:18px;padding:18px;box-shadow:0 12px 40px #0008}.fv-drawing-box h2{margin:0 0 8px}.fv-drawing-box label{display:block;font-size:12px;font-weight:900;margin-top:12px}.fv-drawing-box select,.fv-drawing-box input{width:100%;padding:12px;border:1px solid #c8d0d9;border-radius:10px;margin-top:5px}.fv-drawing-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.fv-drawing-actions button{padding:13px}.fv-drawing-save{background:#16803d;color:#fff}.fv-drawing-cancel{background:#e7edf4;color:#16202a}.fv-drawing-delete{background:#b42318;color:#fff}';document.head.appendChild(style);
   s.addEventListener('change',async()=>{if(!s.value)return;setActive(filter.value,s.value);await switchForCategory(filter.value,s.value)});
+  del.addEventListener('click',deleteSelectedDrawing);
 }
 
 function refreshDrawingSelector(category){
-  ensureUi();const s=document.getElementById('drawingFilter');
-  if(!category||!CATEGORIES.includes(category)){s.innerHTML='<option value="">Project drawing</option>';s.disabled=true;return}
+  ensureUi();const s=document.getElementById('drawingFilter'),del=document.getElementById('deleteDrawingBtn');
+  if(!category||!CATEGORIES.includes(category)){s.innerHTML='<option value="">Project drawing</option>';s.disabled=true;del.disabled=true;del.style.opacity='.45';return}
   const rows=library(category),current=getActive(category);
-  s.disabled=!rows.length;
+  s.disabled=!rows.length;del.disabled=!rows.length;del.style.opacity=rows.length?'1':'.45';
   s.innerHTML=rows.length?rows.map(x=>`<option value="${String(x.id).replace(/"/g,'&quot;')}" ${x.id===current?'selected':''}>${escapeHtml(x.description)}</option>`).join(''):`<option value="">No ${category} drawing loaded</option>`;
 }
-function escapeHtml(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 
 function blankDrawing(category){
   const label=category?`No ${category} drawing loaded for this project`:'No drawing selected';
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="100%" height="100%" fill="#eef2f6"/><text x="800" y="470" text-anchor="middle" font-family="Arial" font-size="42" font-weight="700" fill="#53606c">${label}</text><text x="800" y="530" text-anchor="middle" font-family="Arial" font-size="26" fill="#6d7883">Use Load / Replace Drawing to add one.</text></svg>`;
   const img=document.getElementById('planImage');if(img)img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+
+async function deleteStoredDrawing(id){
+  if(!id)return;
+  try{
+    const db=await openDB();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction('settings','readwrite');
+      tx.objectStore('settings').delete(id);
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+    });
+  }catch(err){console.warn('Drawing file delete warning',err)}
+}
+
+async function deleteSelectedDrawing(){
+  const category=filter.value,s=document.getElementById('drawingFilter');
+  if(!CATEGORIES.includes(category)||!s?.value)return;
+  const rows=library(category),item=rows.find(x=>x.id===s.value);if(!item)return;
+  if(!confirm(`Delete "${item.description}" from this ${category} project?\n\nThis removes the drawing from this project. Saved inspection records, notes, NCRs, GPS and photos are not deleted.`))return;
+  const id=item.id;
+  await deleteStoredDrawing(id);
+  saveMeta(allMeta().filter(x=>x.id!==id));
+  const remaining=library(category);
+  if(remaining.length){
+    const next=remaining[0];setActive(category,next.id);activeStorageOverride=next.id;refreshDrawingSelector(category);await switchForCategory(category,next.id);
+  }else{
+    setActive(category,'');activeStorageOverride=null;refreshDrawingSelector(category);blankDrawing(category);
+  }
+  try{toast(`${category} drawing deleted: ${item.description}`)}catch{}
 }
 
 async function switchForCategory(category,requestedId=''){
@@ -100,12 +130,8 @@ if(coreDrawingChange){
   };
 }
 
-// Core filter behavior still filters the project records/pins; this adds the
-// corresponding drawing switch immediately afterward.
 filter.addEventListener('change',()=>{const category=filter.value;setTimeout(()=>switchForCategory(category),0)});
 
-// Re-run the drawing switch whenever the project selector changes the active
-// project. A click on Projects itself does not switch; opening a project does.
 document.addEventListener('click',e=>{
   const b=e.target.closest?.('.project-row button');if(!b)return;
   setTimeout(()=>{refreshDrawingSelector(filter.value);switchForCategory(filter.value)},100);
@@ -113,6 +139,6 @@ document.addEventListener('click',e=>{
 
 ensureUi();refreshDrawingSelector(filter.value);
 if(CATEGORIES.includes(filter.value))setTimeout(()=>switchForCategory(filter.value),50);
-window.FIELDVERIFY_DRAWING_MANAGER={version:VERSION,categories:CATEGORIES,library:()=>allMeta()};
+window.FIELDVERIFY_DRAWING_MANAGER={version:VERSION,categories:CATEGORIES,library:()=>allMeta(),deleteSelected:deleteSelectedDrawing};
 console.info(`FieldVerify drawing manager ${VERSION} loaded`);
 })();
