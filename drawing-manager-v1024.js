@@ -1,11 +1,11 @@
 /* FieldVerify Pro v10.24 - project/category drawing manager
-   Organizes uploaded drawings by project and work type, supports multiple
-   described drawings per category, automatically switches drawings when
-   the top item-type filter changes, and allows drawings to be removed.
+   Organizes drawings by project/work type. Multi-page PDFs can be saved as
+   individual page drawings, selected from the header dropdown, or browsed
+   visually with scrollable page thumbnails.
 */
 (()=>{
 'use strict';
-const VERSION='10.24-drawings-2';
+const VERSION='10.24-drawings-3';
 const CATEGORIES=['Caisson','ERS','Tieback','Footing','Column','Custom'];
 const META_KEY='fieldVerifyDrawingLibraryV1024';
 const ACTIVE_KEY='fieldVerifyActiveDrawingV1024';
@@ -16,9 +16,9 @@ if(!input||!filter||typeof drawingStorageId!=='function'||typeof applyStoredDraw
 }
 const coreStorageId=drawingStorageId;
 const coreApplyStoredDrawing=applyStoredDrawing;
-const coreDrawingChange=input.onchange;
 let activeStorageOverride=null;
 let switching=false;
+const pdfCache=new WeakMap();
 
 function projectId(){return String(typeof activeProjectId!=='undefined'&&activeProjectId||'legacy')}
 function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'')||fallback}catch{return fallback}}
@@ -27,118 +27,62 @@ function saveMeta(x){localStorage.setItem(META_KEY,JSON.stringify(x))}
 function activeMap(){const x=readJson(ACTIVE_KEY,{});return x&&typeof x==='object'?x:{}}
 function setActive(category,id){const a=activeMap(),key=`${projectId()}|${category}`;if(id)a[key]=id;else delete a[key];localStorage.setItem(ACTIVE_KEY,JSON.stringify(a))}
 function getActive(category){return activeMap()[`${projectId()}|${category}`]||''}
-function library(category){return allMeta().filter(x=>x.projectId===projectId()&&x.category===category).sort((a,b)=>String(a.description).localeCompare(String(b.description)))}
-function uid(category){return `fieldverify-drawing:${projectId()}:${category.toLowerCase()}:${Date.now()}:${Math.random().toString(36).slice(2,8)}`}
+function library(category){return allMeta().filter(x=>x.projectId===projectId()&&x.category===category).sort((a,b)=>{
+  const ga=String(a.groupId||a.description||''),gb=String(b.groupId||b.description||'');
+  if(ga!==gb)return ga.localeCompare(gb);
+  return (Number(a.pageNumber)||0)-(Number(b.pageNumber)||0)||String(a.description).localeCompare(String(b.description));
+})}
+function uid(category,page=''){return `fieldverify-drawing:${projectId()}:${category.toLowerCase()}:${Date.now()}:${page||0}:${Math.random().toString(36).slice(2,8)}`}
 function cleanName(name){return String(name||'Drawing').replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim()||'Drawing'}
 function escapeHtml(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
+function isPdf(file){return file&&(file.type==='application/pdf'||String(file.name||'').toLowerCase().endsWith('.pdf'))}
+function dbDone(tx){return new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)})}
+async function putSetting(item){const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').put(item);await dbDone(tx)}
+async function getSetting(id){const db=await openDB(),tx=db.transaction('settings','readonly'),q=tx.objectStore('settings').get(id);const item=await new Promise((res,rej)=>{q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});await dbDone(tx);return item}
+async function pdfFor(blob){let p=pdfCache.get(blob);if(!p){p=(async()=>{if(typeof pdfInfo==='function')return pdfInfo(blob);const pdfjs=await import('./pdf.min.mjs');pdfjs.GlobalWorkerOptions.workerSrc='./pdf.worker.min.mjs';return pdfjs.getDocument({data:await blob.arrayBuffer()}).promise})();pdfCache.set(blob,p)}return p}
 
 drawingStorageId=function categorizedDrawingStorageId(){return activeStorageOverride||coreStorageId()};
 
 function ensureUi(){
   if(document.getElementById('drawingFilter'))return;
-  const wrap=document.createElement('span');wrap.id='drawingSelectorWrap';wrap.style.cssText='display:inline-flex;gap:5px;align-items:center;max-width:285px';
-  const s=document.createElement('select');s.id='drawingFilter';s.className='badge';s.setAttribute('aria-label','Drawing sheet');s.style.cssText='color:#fff;max-width:190px;min-width:110px';
-  const del=document.createElement('button');del.id='deleteDrawingBtn';del.type='button';del.className='badge';del.title='Delete selected drawing';del.setAttribute('aria-label','Delete selected drawing');del.textContent='Delete';del.style.cssText='color:#fff;background:#b42318;border:1px solid #ffffff44;padding:5px 8px;font-size:11px;font-weight:900';
-  wrap.append(s,del);filter.insertAdjacentElement('afterend',wrap);
-  const style=document.createElement('style');style.textContent='#drawingFilter option{color:#111}.fv-drawing-modal{position:fixed;inset:0;z-index:900;background:#000a;display:grid;place-items:center;padding:18px}.fv-drawing-box{width:min(520px,100%);background:#fff;color:#16202a;border-radius:18px;padding:18px;box-shadow:0 12px 40px #0008}.fv-drawing-box h2{margin:0 0 8px}.fv-drawing-box label{display:block;font-size:12px;font-weight:900;margin-top:12px}.fv-drawing-box select,.fv-drawing-box input{width:100%;padding:12px;border:1px solid #c8d0d9;border-radius:10px;margin-top:5px}.fv-drawing-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.fv-drawing-actions button{padding:13px}.fv-drawing-save{background:#16803d;color:#fff}.fv-drawing-cancel{background:#e7edf4;color:#16202a}.fv-drawing-delete{background:#b42318;color:#fff}';document.head.appendChild(style);
+  const wrap=document.createElement('span');wrap.id='drawingSelectorWrap';wrap.style.cssText='display:inline-flex;gap:5px;align-items:center;max-width:410px';
+  const s=document.createElement('select');s.id='drawingFilter';s.className='badge';s.setAttribute('aria-label','Drawing sheet');s.style.cssText='color:#fff;max-width:205px;min-width:110px';
+  const pages=document.createElement('button');pages.id='drawingPagesBtn';pages.type='button';pages.className='badge';pages.textContent='Pages';pages.title='Browse drawing pages';pages.style.cssText='color:#fff;background:#ffffff22;border:1px solid #ffffff44;padding:5px 9px;font-size:11px;font-weight:900';
+  const del=document.createElement('button');del.id='deleteDrawingBtn';del.type='button';del.className='badge';del.title='Delete selected drawing page';del.setAttribute('aria-label','Delete selected drawing');del.textContent='Delete';del.style.cssText='color:#fff;background:#b42318;border:1px solid #ffffff44;padding:5px 8px;font-size:11px;font-weight:900';
+  wrap.append(s,pages,del);filter.insertAdjacentElement('afterend',wrap);
+  const style=document.createElement('style');style.textContent=`
+#drawingFilter option{color:#111}.fv-drawing-modal{position:fixed;inset:0;z-index:900;background:#000a;display:grid;place-items:center;padding:18px}.fv-drawing-box{width:min(560px,100%);max-height:92vh;overflow:auto;background:#fff;color:#16202a;border-radius:18px;padding:18px;box-shadow:0 12px 40px #0008}.fv-drawing-box h2{margin:0 0 8px}.fv-drawing-box label{display:block;font-size:12px;font-weight:900;margin-top:12px}.fv-drawing-box select,.fv-drawing-box input{width:100%;padding:12px;border:1px solid #c8d0d9;border-radius:10px;margin-top:5px}.fv-drawing-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.fv-drawing-actions button{padding:13px}.fv-drawing-save{background:#16803d;color:#fff}.fv-drawing-cancel{background:#e7edf4;color:#16202a}.fv-page-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.fv-page-card{border:2px solid #d7dee7;border-radius:12px;background:#fff;padding:7px;text-align:left;color:#16202a;min-width:0}.fv-page-card.active{border-color:#16803d;background:#edf8f0}.fv-page-thumb{width:100%;aspect-ratio:1.25/1;background:#eef2f6;border-radius:8px;display:grid;place-items:center;overflow:hidden}.fv-page-thumb canvas,.fv-page-thumb img{display:block;max-width:100%;max-height:100%;object-fit:contain}.fv-page-label{font-size:12px;font-weight:900;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media(max-width:420px){.fv-page-grid{grid-template-columns:1fr 1fr}#drawingSelectorWrap{max-width:100%;flex-wrap:wrap}}`;
+  document.head.appendChild(style);
   s.addEventListener('change',async()=>{if(!s.value)return;setActive(filter.value,s.value);await switchForCategory(filter.value,s.value)});
+  pages.addEventListener('click',openPageBrowser);
   del.addEventListener('click',deleteSelectedDrawing);
 }
 
+function rowLabel(x){if(x.pageCount>1)return `${x.baseDescription||x.description||'Drawing'} · Page ${x.pageNumber} of ${x.pageCount}`;return x.description||x.name||'Drawing'}
 function refreshDrawingSelector(category){
-  ensureUi();const s=document.getElementById('drawingFilter'),del=document.getElementById('deleteDrawingBtn');
-  if(!category||!CATEGORIES.includes(category)){s.innerHTML='<option value="">Project drawing</option>';s.disabled=true;del.disabled=true;del.style.opacity='.45';return}
+  ensureUi();const s=document.getElementById('drawingFilter'),del=document.getElementById('deleteDrawingBtn'),pages=document.getElementById('drawingPagesBtn');
+  if(!category||!CATEGORIES.includes(category)){s.innerHTML='<option value="">Project drawing</option>';s.disabled=true;del.disabled=true;pages.disabled=true;del.style.opacity=pages.style.opacity='.45';return}
   const rows=library(category),current=getActive(category);
-  s.disabled=!rows.length;del.disabled=!rows.length;del.style.opacity=rows.length?'1':'.45';
-  s.innerHTML=rows.length?rows.map(x=>`<option value="${String(x.id).replace(/"/g,'&quot;')}" ${x.id===current?'selected':''}>${escapeHtml(x.description)}</option>`).join(''):`<option value="">No ${category} drawing loaded</option>`;
+  s.disabled=!rows.length;del.disabled=!rows.length;pages.disabled=!rows.length;del.style.opacity=pages.style.opacity=rows.length?'1':'.45';
+  s.innerHTML=rows.length?rows.map(x=>`<option value="${String(x.id).replace(/"/g,'&quot;')}" ${x.id===current?'selected':''}>${escapeHtml(rowLabel(x))}</option>`).join(''):`<option value="">No ${category} drawing loaded</option>`;
 }
+function blankDrawing(category){const label=category?`No ${category} drawing loaded for this project`:'No drawing selected';const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="100%" height="100%" fill="#eef2f6"/><text x="800" y="470" text-anchor="middle" font-family="Arial" font-size="42" font-weight="700" fill="#53606c">${label}</text><text x="800" y="530" text-anchor="middle" font-family="Arial" font-size="26" fill="#6d7883">Use Load / Replace Drawing to add one.</text></svg>`;const img=document.getElementById('planImage');if(img)img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)}
+async function deleteStoredDrawing(id){if(!id)return;try{const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').delete(id);await dbDone(tx)}catch(err){console.warn('Drawing file delete warning',err)}}
+async function deleteSelectedDrawing(){const category=filter.value,s=document.getElementById('drawingFilter');if(!CATEGORIES.includes(category)||!s?.value)return;const rows=library(category),item=rows.find(x=>x.id===s.value);if(!item)return;if(!confirm(`Delete "${rowLabel(item)}" from this ${category} project?\n\nSaved inspection records, notes, NCRs, GPS and photos are not deleted.`))return;await deleteStoredDrawing(item.id);saveMeta(allMeta().filter(x=>x.id!==item.id));const remaining=library(category);if(remaining.length){const next=remaining[0];setActive(category,next.id);activeStorageOverride=next.id;refreshDrawingSelector(category);await switchForCategory(category,next.id)}else{setActive(category,'');activeStorageOverride=null;refreshDrawingSelector(category);blankDrawing(category)}try{toast(`${category} drawing deleted: ${rowLabel(item)}`)}catch{}}
+async function switchForCategory(category,requestedId=''){if(switching)return;switching=true;try{if(!CATEGORIES.includes(category)){activeStorageOverride=null;refreshDrawingSelector('');await coreApplyStoredDrawing();return}const rows=library(category);if(!rows.length){activeStorageOverride=null;refreshDrawingSelector(category);blankDrawing(category);return}let id=requestedId||getActive(category);if(!rows.some(x=>x.id===id))id=rows[0].id;setActive(category,id);activeStorageOverride=id;refreshDrawingSelector(category);await coreApplyStoredDrawing()}catch(err){console.warn('Drawing category switch failed',err);try{toast(`Drawing switch failed: ${err.message}`)}catch{}}finally{switching=false}}
 
-function blankDrawing(category){
-  const label=category?`No ${category} drawing loaded for this project`:'No drawing selected';
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="100%" height="100%" fill="#eef2f6"/><text x="800" y="470" text-anchor="middle" font-family="Arial" font-size="42" font-weight="700" fill="#53606c">${label}</text><text x="800" y="530" text-anchor="middle" font-family="Arial" font-size="26" fill="#6d7883">Use Load / Replace Drawing to add one.</text></svg>`;
-  const img=document.getElementById('planImage');if(img)img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-}
+function chooseDrawingInfo(file,pageCount){return new Promise(resolve=>{document.getElementById('fvDrawingModal')?.remove();const modal=document.createElement('div');modal.id='fvDrawingModal';modal.className='fv-drawing-modal';const pdfOptions=pageCount>1?`<label>PDF PAGES</label><select id="fvDrawingPagesMode"><option value="all">Save all ${pageCount} pages individually</option><option value="one">Save one page only</option></select><div id="fvOnePageWrap" style="display:none"><label>PAGE NUMBER</label><input id="fvDrawingPageNumber" type="number" min="1" max="${pageCount}" value="1"></div><div style="font-size:12px;color:#687480;margin-top:6px">Saving all pages creates Page 1, Page 2, Page 3, etc. in the drawing menu so each sheet can be opened independently.</div>`:'';modal.innerHTML=`<div class="fv-drawing-box"><h2>Save Drawing To Project</h2><div style="font-size:13px;color:#66717c">${escapeHtml(file?.name||'Selected drawing')}${pageCount>1?` · ${pageCount} pages`:''}</div><label>DRAWING TYPE</label><select id="fvDrawingCategory">${CATEGORIES.map(c=>`<option ${filter.value===c?'selected':''}>${c}</option>`).join('')}</select><label>DRAWING DESCRIPTION</label><input id="fvDrawingDescription" value="${escapeHtml(cleanName(file?.name))}" placeholder="Example: East Tunnel or West Tunnel">${pdfOptions}<div class="fv-drawing-actions"><button id="fvDrawingCancel" class="fv-drawing-cancel">Cancel</button><button id="fvDrawingSave" class="fv-drawing-save">SAVE DRAWING</button></div></div>`;document.body.appendChild(modal);const mode=modal.querySelector('#fvDrawingPagesMode');if(mode)mode.onchange=()=>modal.querySelector('#fvOnePageWrap').style.display=mode.value==='one'?'block':'none';const finish=v=>{modal.remove();resolve(v)};modal.querySelector('#fvDrawingCancel').onclick=()=>finish(null);modal.querySelector('#fvDrawingSave').onclick=()=>{const category=modal.querySelector('#fvDrawingCategory').value,description=modal.querySelector('#fvDrawingDescription').value.trim();if(!description){try{toast('Add a drawing description first')}catch{};return}let pages='all',pageNumber=1;if(mode){pages=mode.value;pageNumber=Math.max(1,Math.min(pageCount,parseInt(modal.querySelector('#fvDrawingPageNumber')?.value||'1',10)||1))}finish({category,description,pages,pageNumber})}})}
 
-async function deleteStoredDrawing(id){
-  if(!id)return;
-  try{
-    const db=await openDB();
-    await new Promise((resolve,reject)=>{
-      const tx=db.transaction('settings','readwrite');
-      tx.objectStore('settings').delete(id);
-      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
-    });
-  }catch(err){console.warn('Drawing file delete warning',err)}
-}
+async function saveUploadedDrawing(file,info,pageCount){const now=new Date().toISOString(),groupId=`${projectId()}|${info.category}|${Date.now()}|${Math.random().toString(36).slice(2,7)}`;const pages=pageCount>1&&info.pages==='all'?Array.from({length:pageCount},(_,i)=>i+1):[pageCount>1?info.pageNumber:1];const metaRows=[];for(const pageNumber of pages){const id=uid(info.category,pageNumber);const desc=pageCount>1?`${info.description} · Page ${pageNumber}`:info.description;await putSetting({id,name:file.name,type:file.type||(isPdf(file)?'application/pdf':''),blob:file,pageNumber,pageCount,date:now});metaRows.push({id,projectId:projectId(),category:info.category,description:desc,baseDescription:info.description,name:file.name||info.description,date:now,groupId,pageNumber,pageCount})}saveMeta([...allMeta(),...metaRows]);const first=metaRows[0];setActive(info.category,first.id);activeStorageOverride=first.id;filter.value=info.category;refreshDrawingSelector(info.category);await coreApplyStoredDrawing();try{renderPins();selected=null;nearest=null;showTarget()}catch{};try{toast(pageCount>1&&pages.length>1?`${info.category}: saved all ${pageCount} pages`:`${info.category} drawing saved: ${rowLabel(first)}`)}catch{};return metaRows}
 
-async function deleteSelectedDrawing(){
-  const category=filter.value,s=document.getElementById('drawingFilter');
-  if(!CATEGORIES.includes(category)||!s?.value)return;
-  const rows=library(category),item=rows.find(x=>x.id===s.value);if(!item)return;
-  if(!confirm(`Delete "${item.description}" from this ${category} project?\n\nThis removes the drawing from this project. Saved inspection records, notes, NCRs, GPS and photos are not deleted.`))return;
-  const id=item.id;
-  await deleteStoredDrawing(id);
-  saveMeta(allMeta().filter(x=>x.id!==id));
-  const remaining=library(category);
-  if(remaining.length){
-    const next=remaining[0];setActive(category,next.id);activeStorageOverride=next.id;refreshDrawingSelector(category);await switchForCategory(category,next.id);
-  }else{
-    setActive(category,'');activeStorageOverride=null;refreshDrawingSelector(category);blankDrawing(category);
-  }
-  try{toast(`${category} drawing deleted: ${item.description}`)}catch{}
-}
+input.onchange=async function categorizedDrawingUpload(e){const file=e.target.files?.[0];if(!file)return;try{if(!file.type.startsWith('image/')&&!isPdf(file))throw Error('Choose a PDF, PNG, JPG, WebP, or GIF file');let pageCount=1;if(isPdf(file)){try{const pdf=await pdfFor(file);pageCount=pdf.numPages||1}catch(err){throw Error(`PDF could not be opened: ${err.message||err}`)}}const info=await chooseDrawingInfo(file,pageCount);if(!info)return;try{toast(pageCount>1?`Saving ${info.pages==='all'?`all ${pageCount} pages`:`page ${info.pageNumber}`}…`:'Saving drawing…')}catch{};const saved=await saveUploadedDrawing(file,info,pageCount);if(saved.length>1)setTimeout(openPageBrowser,150)}catch(err){console.error('Drawing import',err);try{toast(`Drawing import failed: ${err.message||err}`)}catch{}}finally{e.target.value=''}};
 
-async function switchForCategory(category,requestedId=''){
-  if(switching)return;switching=true;
-  try{
-    if(!CATEGORIES.includes(category)){activeStorageOverride=null;refreshDrawingSelector('');await coreApplyStoredDrawing();return}
-    const rows=library(category);
-    if(!rows.length){activeStorageOverride=null;refreshDrawingSelector(category);blankDrawing(category);return}
-    let id=requestedId||getActive(category);if(!rows.some(x=>x.id===id))id=rows[0].id;
-    setActive(category,id);activeStorageOverride=id;refreshDrawingSelector(category);await coreApplyStoredDrawing();
-  }catch(err){console.warn('Drawing category switch failed',err);try{toast(`Drawing switch failed: ${err.message}`)}catch{}}
-  finally{switching=false}
-}
+async function drawThumb(meta,host){try{const item=await getSetting(meta.id);if(!item?.blob){host.textContent='Drawing unavailable';return}if(isPdf(item)){const pdf=await pdfFor(item.blob),page=await pdf.getPage(Math.max(1,Math.min(pdf.numPages,item.pageNumber||meta.pageNumber||1))),base=page.getViewport({scale:1}),scale=Math.min(1.4,280/Math.max(base.width,base.height)),vp=page.getViewport({scale}),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.ceil(vp.width));canvas.height=Math.max(1,Math.ceil(vp.height));await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;host.replaceChildren(canvas)}else{const img=document.createElement('img'),url=URL.createObjectURL(item.blob);img.src=url;img.onload=()=>URL.revokeObjectURL(url);img.onerror=()=>URL.revokeObjectURL(url);host.replaceChildren(img)}}catch(err){host.textContent='Preview unavailable';console.warn('Drawing thumbnail',err)}}
+async function openPageBrowser(){const category=filter.value;if(!CATEGORIES.includes(category))return;const rows=library(category);if(!rows.length)return;document.getElementById('fvDrawingPagesModal')?.remove();const modal=document.createElement('div');modal.id='fvDrawingPagesModal';modal.className='fv-drawing-modal';modal.innerHTML=`<div class="fv-drawing-box"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><h2 style="margin:0">${escapeHtml(category)} Drawings</h2><div style="font-size:12px;color:#687480">Tap a thumbnail to open that page.</div></div><button id="fvPagesClose" style="padding:10px;background:#e7edf4">Close</button></div><div class="fv-page-grid">${rows.map((x,i)=>`<button class="fv-page-card ${x.id===getActive(category)?'active':''}" data-id="${escapeHtml(x.id)}"><div class="fv-page-thumb" data-thumb="${i}"><span style="font-size:12px;color:#687480">Loading…</span></div><div class="fv-page-label">${escapeHtml(rowLabel(x))}</div></button>`).join('')}</div></div>`;document.body.appendChild(modal);modal.querySelector('#fvPagesClose').onclick=()=>modal.remove();modal.querySelectorAll('.fv-page-card').forEach(b=>b.onclick=async()=>{const id=b.dataset.id;setActive(category,id);await switchForCategory(category,id);modal.remove()});for(let i=0;i<rows.length;i++){const host=modal.querySelector(`[data-thumb="${i}"]`);if(host)await drawThumb(rows[i],host)}}
 
-function chooseDrawingInfo(file){
-  return new Promise(resolve=>{
-    const old=document.getElementById('fvDrawingModal');if(old)old.remove();
-    const modal=document.createElement('div');modal.id='fvDrawingModal';modal.className='fv-drawing-modal';
-    modal.innerHTML=`<div class="fv-drawing-box"><h2>Save Drawing To Project</h2><div style="font-size:13px;color:#66717c">${escapeHtml(file?.name||'Selected drawing')}</div><label>DRAWING TYPE</label><select id="fvDrawingCategory">${CATEGORIES.map(c=>`<option ${filter.value===c?'selected':''}>${c}</option>`).join('')}</select><label>DRAWING DESCRIPTION</label><input id="fvDrawingDescription" value="${escapeHtml(cleanName(file?.name))}" placeholder="Example: East Tunnel or West Tunnel"><div style="font-size:12px;color:#687480;margin-top:6px">Use a description that identifies this sheet, such as East Tunnel, West Tunnel, North Wall, or Area A.</div><div class="fv-drawing-actions"><button id="fvDrawingCancel" class="fv-drawing-cancel">Cancel</button><button id="fvDrawingSave" class="fv-drawing-save">SAVE DRAWING</button></div></div>`;
-    document.body.appendChild(modal);
-    const finish=v=>{modal.remove();resolve(v)};
-    modal.querySelector('#fvDrawingCancel').onclick=()=>finish(null);
-    modal.querySelector('#fvDrawingSave').onclick=()=>{const category=modal.querySelector('#fvDrawingCategory').value,description=modal.querySelector('#fvDrawingDescription').value.trim();if(!description){try{toast('Add a drawing description first')}catch{};modal.querySelector('#fvDrawingDescription').focus();return}finish({category,description})};
-  })
-}
-
-if(coreDrawingChange){
-  input.onchange=async function categorizedDrawingUpload(e){
-    const file=e.target.files?.[0];if(!file)return;
-    const info=await chooseDrawingInfo(file);
-    if(!info){e.target.value='';return}
-    const id=uid(info.category),meta={id,projectId:projectId(),category:info.category,description:info.description,name:file.name||info.description,date:new Date().toISOString()};
-    const rows=allMeta();rows.push(meta);saveMeta(rows);setActive(info.category,id);activeStorageOverride=id;
-    filter.value=info.category;refreshDrawingSelector(info.category);
-    try{
-      await coreDrawingChange.call(input,e);
-      try{renderPins();selected=null;nearest=null;showTarget()}catch{}
-      try{toast(`${info.category} drawing saved: ${info.description}`)}catch{}
-    }catch(err){
-      saveMeta(allMeta().filter(x=>x.id!==id));try{toast(`Drawing import failed: ${err.message}`)}catch{}
-    }
-  };
-}
-
-filter.addEventListener('change',()=>{const category=filter.value;setTimeout(()=>switchForCategory(category),0)});
-
-document.addEventListener('click',e=>{
-  const b=e.target.closest?.('.project-row button');if(!b)return;
-  setTimeout(()=>{refreshDrawingSelector(filter.value);switchForCategory(filter.value)},100);
-},true);
-
-ensureUi();refreshDrawingSelector(filter.value);
-if(CATEGORIES.includes(filter.value))setTimeout(()=>switchForCategory(filter.value),50);
-window.FIELDVERIFY_DRAWING_MANAGER={version:VERSION,categories:CATEGORIES,library:()=>allMeta(),deleteSelected:deleteSelectedDrawing};
+filter.addEventListener('change',()=>setTimeout(()=>switchForCategory(filter.value),0));
+document.addEventListener('click',e=>{const b=e.target.closest?.('.project-row button');if(!b)return;setTimeout(()=>{refreshDrawingSelector(filter.value);switchForCategory(filter.value)},100)},true);
+ensureUi();refreshDrawingSelector(filter.value);if(CATEGORIES.includes(filter.value))setTimeout(()=>switchForCategory(filter.value),50);
+window.FIELDVERIFY_DRAWING_MANAGER={version:VERSION,categories:CATEGORIES,library:()=>allMeta(),deleteSelected:deleteSelectedDrawing,browsePages:openPageBrowser};
 console.info(`FieldVerify drawing manager ${VERSION} loaded`);
 })();
