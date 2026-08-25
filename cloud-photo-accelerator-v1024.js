@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.24-cloud-photo-accelerator-1';
+const VERSION='10.24-cloud-photo-accelerator-2';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 const CONCURRENCY=5;
@@ -22,11 +22,13 @@ function restoreStatus(){const b=document.getElementById('fvCloudBtn');if(b&&b.d
 async function downloadOne(c,m){let lastErr=null;for(let attempt=0;attempt<2;attempt++){try{const dl=await c.storage.from('fieldverify').download(m.storage_path);if(dl.error)throw dl.error;if(dl.data){await save(m,dl.data);return true}}catch(e){lastErr=e;if(attempt===0)await new Promise(r=>setTimeout(r,250))}}console.warn('Photo accelerator download failed',m?.id,lastErr);return false}
 async function run(force=false){const pid=cloudId();if(!pid||!navigator.onLine||running)return 0;const now=Date.now();if(!force&&pid===lastPid&&now-lastRun<12000)return 0;running=true;lastPid=pid;lastRun=now;try{const c=await client(),session=(await c.auth.getSession()).data.session;if(!session)return 0;const q=await c.from('fieldverify_photos').select('id,item_key,storage_path,file_name,mime_type,captured_at,created_at').eq('project_id',pid);if(q.error)throw q.error;const remote=q.data||[];if(!remote.length)return 0;const have=await localPhotoIds();const missing=remote.filter(x=>x?.id&&x?.storage_path&&!have.has(String(x.id)));if(!missing.length)return 0;let next=0,finished=0,saved=0;status(`Cloud: Photos 0/${missing.length}`);async function worker(){while(true){const i=next++;if(i>=missing.length)return;const ok=await downloadOne(c,missing[i]);if(ok)saved++;finished++;if(finished===missing.length||finished%3===0)status(`Cloud: Photos ${finished}/${missing.length}`)}}await Promise.all(Array.from({length:Math.min(CONCURRENCY,missing.length)},worker));restoreStatus();if(saved){try{toast(`${saved} cloud photo${saved===1?'':'s'} downloaded faster`)}catch{};try{if(typeof showTarget==='function'&&typeof selected!=='undefined'&&selected!=null)showTarget()}catch{}}return saved}catch(e){console.warn('Cloud photo accelerator',e);restoreStatus();return 0}finally{running=false}}
 function queue(delay=150){setTimeout(()=>run(false),delay)}
+function loadCaissonRfi(){if(window.FIELDVERIFY_CAISSON_RFI||document.querySelector('script[data-fv-caisson-rfi]'))return;const s=document.createElement('script');s.src='./caisson-rfi-info-v1024.js?v=10.24.1';s.async=false;s.dataset.fvCaissonRfi='1';document.head.appendChild(s)}
 addEventListener('online',()=>run(true));
 document.addEventListener('change',e=>{if(e.target?.id==='projectHeaderSelect')queue(120)});
 document.addEventListener('click',e=>{if(e.target?.closest?.('.openProject,#fvCloudBtn,#projectHeaderSelect'))queue(250)},true);
 setTimeout(()=>run(true),120);
 setTimeout(()=>run(false),1800);
+setTimeout(loadCaissonRfi,80);
 window.FIELDVERIFY_CLOUD_PHOTO_ACCELERATOR={version:VERSION,run:()=>run(true),concurrency:CONCURRENCY};
 console.info(`FieldVerify cloud photo accelerator ${VERSION} loaded (${CONCURRENCY} parallel downloads)`);
 })();
