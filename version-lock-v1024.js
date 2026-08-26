@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD='10.25.1';
+  const BUILD='10.25.2';
   function apply(){
     const title=document.querySelector('.top .title');
     if(title && !String(title.textContent||'').includes(`v${BUILD}`)) title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;
@@ -8,8 +8,8 @@
     try{localStorage.setItem('fieldVerifyInstalledBuild',BUILD)}catch{}
   }
   function loadHotfix(){
-    const src='./caisson-project-import-v1025.js?v=10.25.1-poured-excel-fix';
-    const existing=[...document.scripts].find(s=>String(s.src||'').includes('caisson-project-import-v1025.js')&&String(s.src||'').includes('10.25.1-poured-excel-fix'));
+    const src='./caisson-project-import-v1025.js?v=10.25.2-excel-parser-fix';
+    const existing=[...document.scripts].find(s=>String(s.src||'').includes('caisson-project-import-v1025.js')&&String(s.src||'').includes('10.25.2-excel-parser-fix'));
     if(existing)return;
     const s=document.createElement('script');
     s.src=src;
