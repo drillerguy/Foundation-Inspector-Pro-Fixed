@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD='10.25.4';
+  const BUILD='10.25.5';
   function apply(){
     const title=document.querySelector('.top .title');
     if(title && !String(title.textContent||'').includes(`v${BUILD}`)) title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;
@@ -12,7 +12,7 @@
     const s=document.createElement('script');s.src=src;s.async=false;s.dataset.fieldverifyHotfix=key;s.onerror=()=>console.error('FieldVerify hotfix failed to load: '+key);document.body.appendChild(s);
   }
   function loadHotfixes(){
-    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.4-final','caisson-final-workbook-import-v10253.js?v=10.25.4-final');
+    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.5-single-import','caisson-final-workbook-import-v10253.js?v=10.25.5-single-import');
     loadScript('./poured-status-v10254.js?v=10.25.4','poured-status-v10254.js?v=10.25.4');
   }
   apply();loadHotfixes();
