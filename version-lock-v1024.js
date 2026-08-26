@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD='10.24';
+  const BUILD='10.25';
   function apply(){
     const title=document.querySelector('.top .title');
     if(title && !String(title.textContent||'').includes(`v${BUILD}`)) title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;
