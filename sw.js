@@ -6,4 +6,4 @@
    IMPORTANT: bump this query version with every release so legacy installs
    are forced to fetch the newest worker instead of staying on an old import.
 */
-importScripts('./service-worker.js?v=10.24-photo-viewer-restore-1');
+importScripts('./service-worker.js?v=10.25-caisson-project-import-poured-1');
