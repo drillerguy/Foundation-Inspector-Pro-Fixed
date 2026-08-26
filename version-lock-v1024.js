@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD='10.25.7';
+  const BUILD='10.25.8';
   function apply(){
     const title=document.querySelector('.top .title');
     if(title && !String(title.textContent||'').includes(`v${BUILD}`)) title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;
@@ -12,9 +12,11 @@
     const s=document.createElement('script');s.src=src;s.async=false;s.dataset.fieldverifyHotfix=key;s.onerror=()=>console.error('FieldVerify hotfix failed to load: '+key);document.body.appendChild(s);
   }
   function loadHotfixes(){
-    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.7','caisson-final-workbook-import-v10253.js?v=10.25.7');
-    loadScript('./poured-status-v10254.js?v=10.25.7','poured-status-v10254.js?v=10.25.7');
-    loadScript('./inspection-status-fix-v10257.js?v=10.25.7','inspection-status-fix-v10257.js?v=10.25.7');
+    loadScript('./drawing-manager-v1024.js?v=10.25.8','drawing-manager-v1024.js?v=10.25.8');
+    loadScript('./drawing-delete-page-v1024.js?v=10.25.8','drawing-delete-page-v1024.js?v=10.25.8');
+    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.8','caisson-final-workbook-import-v10253.js?v=10.25.8');
+    loadScript('./poured-status-v10254.js?v=10.25.8','poured-status-v10254.js?v=10.25.8');
+    loadScript('./inspection-status-fix-v10257.js?v=10.25.8','inspection-status-fix-v10257.js?v=10.25.8');
   }
   apply();loadHotfixes();
   setTimeout(apply,150);setTimeout(apply,800);setTimeout(loadHotfixes,500);setTimeout(loadHotfixes,1500);
