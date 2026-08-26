@@ -35,3 +35,5 @@ console.info(`FieldVerify drawing delete page ${VERSION} loaded`);
 // Load the memory-safe shared-source PDF drawing layer after the drawing manager.
 // This stores large multi-page PDFs only once and lazy-loads page thumbnails.
 import('./large-pdf-safe-v1024.js?v=10.24.1').catch(err=>console.warn('Large PDF safe loader unavailable',err));
+// Convert older 8+ page drawing sets that duplicated the PDF once per page.
+import('./legacy-pdf-migrate-v1024.js?v=10.24.1').catch(err=>console.warn('Legacy PDF migration unavailable',err));
