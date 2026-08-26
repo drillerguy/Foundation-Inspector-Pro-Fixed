@@ -31,3 +31,7 @@ setInterval(ensureButton,1000);setTimeout(ensureButton,100);
 window.FIELDVERIFY_DRAWING_DELETE_PAGE={version:VERSION,confirmDelete:showDeleteWarning};
 console.info(`FieldVerify drawing delete page ${VERSION} loaded`);
 })();
+
+// Load the memory-safe shared-source PDF drawing layer after the drawing manager.
+// This stores large multi-page PDFs only once and lazy-loads page thumbnails.
+import('./large-pdf-safe-v1024.js?v=10.24.1').catch(err=>console.warn('Large PDF safe loader unavailable',err));
