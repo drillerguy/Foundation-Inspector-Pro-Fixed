@@ -7,7 +7,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.24-cloud-photo-accelerator-4';
+const VERSION='10.24-cloud-photo-accelerator-5';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 const CONCURRENCY=5;
@@ -27,6 +27,7 @@ async function run(force=false){const pid=cloudId();if(!pid||!navigator.onLine||
 function queue(delay=150){setTimeout(()=>run(false),delay)}
 function loadExtra(file,flag,version){if(window[flag]||document.querySelector(`script[data-fv-extra="${flag}"]`))return;const s=document.createElement('script');s.src=`./${file}?v=${version}`;s.async=false;s.dataset.fvExtra=flag;document.head.appendChild(s)}
 function loadCaissonRfi(){loadExtra('caisson-rfi-info-v1024.js','FIELDVERIFY_CAISSON_RFI','10.24.1')}
+function loadCaissonExcelDesign(){loadExtra('caisson-excel-design-v1025.js','FIELDVERIFY_CAISSON_EXCEL_DESIGN','10.25.1')}
 function loadManagerDrawLock(){loadExtra('manager-draw-lock-v1024.js','FIELDVERIFY_MANAGER_DRAW_LOCK','10.24.1')}
 async function guardManualSync(e){const b=e.target?.closest?.('#fvSyncNow');if(!b||b.dataset.fvSyncGuardBypass==='1'||syncGuardBusy)return;const original=b.onclick;if(typeof original!=='function')return;e.preventDefault();e.stopImmediatePropagation();syncGuardBusy=true;b.disabled=true;const oldText=b.textContent;b.textContent='Checking photos…';try{await cleanInvalidLocalPhotos();b.dataset.fvSyncGuardBypass='1';b.disabled=false;b.textContent=oldText;try{await original.call(b,e)}finally{delete b.dataset.fvSyncGuardBypass}}catch(err){console.error('Cloud sync guard',err);try{toast(`Cloud sync preparation failed: ${err.message||err}`)}catch{}}finally{syncGuardBusy=false;b.disabled=false;if(b.textContent==='Checking photos…')b.textContent=oldText}}
 addEventListener('online',()=>run(true));
@@ -36,6 +37,7 @@ document.addEventListener('click',e=>{if(e.target?.closest?.('.openProject,#fvCl
 setTimeout(()=>run(true),120);
 setTimeout(()=>run(false),1800);
 setTimeout(loadCaissonRfi,80);
+setTimeout(loadCaissonExcelDesign,85);
 setTimeout(loadManagerDrawLock,90);
 window.FIELDVERIFY_CLOUD_PHOTO_ACCELERATOR={version:VERSION,run:()=>run(true),clean:cleanInvalidLocalPhotos,concurrency:CONCURRENCY};
 console.info(`FieldVerify cloud photo accelerator ${VERSION} loaded (${CONCURRENCY} parallel downloads)`);
