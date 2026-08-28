@@ -1,10 +1,9 @@
 (()=>{
 'use strict';
-const VERSION='10.25.33-dropdown-dictates-title';
-function cleanId(v,n){
+const VERSION='10.25.34-dropdown-title-preserve-id';
+function rawId(v,n){
   const raw=String(v||'').trim();
-  const m=raw.match(/(?:E-|T-|C)?\s*(\d+)/i);
-  return m?m[1]:String(n);
+  return raw||String(n);
 }
 function formatItemName(n,r){
   try{
@@ -12,12 +11,11 @@ function formatItemName(n,r){
     const selectedType=String(filter&&filter.value||'').trim();
     const recordType=(typeof itemType==='function'?itemType(r):(r&&r.itemType)||'Caisson');
     const type=selectedType||recordType||'Caisson';
-    const custom=String(r&&r.itemLabel||'').trim();
-    const id=cleanId(custom,n);
-    if(type==='ERS') return `Sheet Number E-${id}`;
+    const id=rawId(r&&r.itemLabel,n);
+    if(type==='ERS') return `Sheet Number ${id}`;
     if(type==='Tieback') return `Tieback ${id}`;
     if(type==='Caisson') return `Caisson ${id}`;
-    return custom||`${type} ${id}`;
+    return `${type} ${id}`;
   }catch{return String(n)}
 }
 try{if(typeof itemName==='function')itemName=formatItemName}catch(e){console.warn('Item label override failed',e)}
