@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD='10.25.26';
+  const BUILD='10.25.27';
   function apply(){
     const title=document.querySelector('.top .title');
     if(title && !String(title.textContent||'').includes(`v${BUILD}`)) title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;
@@ -12,19 +12,19 @@
     const s=document.createElement('script');s.src=src;s.async=false;s.dataset.fieldverifyHotfix=key;s.onerror=()=>console.error('FieldVerify hotfix failed to load: '+key);document.body.appendChild(s);
   }
   function loadHotfixes(){
-    loadScript('./drawing-manager-v1024.js?v=10.25.26','drawing-manager-v1024.js?v=10.25.26');
-    loadScript('./drawing-delete-page-v1024.js?v=10.25.26','drawing-delete-page-v1024.js?v=10.25.26');
-    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.26','caisson-final-workbook-import-v10253.js?v=10.25.26');
-    loadScript('./poured-status-v10254.js?v=10.25.26','poured-status-v10254.js?v=10.25.26');
-    loadScript('./inspection-status-fix-v10257.js?v=10.25.26','inspection-status-fix-v10257.js?v=10.25.26');
-    loadScript('./ers-touch-magnifier-v102516.js?v=10.25.26','ers-touch-magnifier-v102516.js?v=10.25.26');
-    loadScript('./cloud-sync-v1024.js?v=10.25.26','cloud-sync-v1024.js?v=10.25.26');
-    loadScript('./cloud-photo-accelerator-v1024.js?v=10.25.26','cloud-photo-accelerator-v1024.js?v=10.25.26');
-    loadScript('./hosted-backup-v1024.js?v=10.25.26','hosted-backup-v1024.js?v=10.25.26');
-    loadScript('./backup-choice-v1024.js?v=10.25.26','backup-choice-v1024.js?v=10.25.26');
-    loadScript('./cloud-photo-upload-fix-v102518.js?v=10.25.26','cloud-photo-upload-fix-v102518.js?v=10.25.26');
-    loadScript('./photo-link-display-fix-v102521.js?v=10.25.26','photo-link-display-fix-v102521.js?v=10.25.26');
-    loadScript('./photo-viewer-v1027.js?v=10.25.26','photo-viewer-v1027.js?v=10.25.26');
+    loadScript('./drawing-manager-v1024.js?v=10.25.27','drawing-manager-v1024.js?v=10.25.27');
+    loadScript('./drawing-delete-page-v1024.js?v=10.25.27','drawing-delete-page-v1024.js?v=10.25.27');
+    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.27','caisson-final-workbook-import-v10253.js?v=10.25.27');
+    loadScript('./poured-status-v10254.js?v=10.25.27','poured-status-v10254.js?v=10.25.27');
+    loadScript('./inspection-status-fix-v10257.js?v=10.25.27','inspection-status-fix-v10257.js?v=10.25.27');
+    loadScript('./ers-touch-magnifier-v102516.js?v=10.25.27','ers-touch-magnifier-v102516.js?v=10.25.27');
+    loadScript('./cloud-sync-v1024.js?v=10.25.27','cloud-sync-v1024.js?v=10.25.27');
+    loadScript('./cloud-photo-accelerator-v1024.js?v=10.25.27','cloud-photo-accelerator-v1024.js?v=10.25.27');
+    loadScript('./hosted-backup-v1024.js?v=10.25.27','hosted-backup-v1024.js?v=10.25.27');
+    loadScript('./backup-choice-v1024.js?v=10.25.27','backup-choice-v1024.js?v=10.25.27');
+    loadScript('./cloud-photo-upload-fix-v102518.js?v=10.25.27','cloud-photo-upload-fix-v102518.js?v=10.25.27');
+    loadScript('./photo-link-display-fix-v102521.js?v=10.25.27','photo-link-display-fix-v102521.js?v=10.25.27');
+    loadScript('./photo-viewer-v1027.js?v=10.25.27','photo-viewer-v1027.js?v=10.25.27');
   }
   apply();loadHotfixes();
   setTimeout(apply,150);setTimeout(apply,800);setTimeout(loadHotfixes,500);setTimeout(loadHotfixes,1500);
