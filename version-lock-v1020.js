@@ -1,35 +1,31 @@
 (()=>{
   'use strict';
-  const BUILD_VERSION='10.20';
+  // Legacy compatibility shim. This file used to force v10.20 forever via a
+  // MutationObserver, which could overwrite the current build label after the
+  // modern version lock had already loaded. Never downgrade a newer build.
+  const LEGACY_VERSION='10.20';
   const BUILD_KEY='fieldVerifyInstalledBuild';
-  let applying=false;
-
-  function applyVersion(){
-    if(applying)return;
-    applying=true;
-    try{
-      const title=document.querySelector('.top .title');
-      const expected=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD_VERSION} stable</span>`;
-      if(title&&title.innerHTML!==expected)title.innerHTML=expected;
-      const docTitle=`FieldVerify Pro v${BUILD_VERSION}`;
-      if(document.title!==docTitle)document.title=docTitle;
-      if(document.documentElement.getAttribute('data-fieldverify-version')!==BUILD_VERSION){
-        document.documentElement.setAttribute('data-fieldverify-version',BUILD_VERSION);
-      }
-      if(localStorage.getItem(BUILD_KEY)!==BUILD_VERSION)localStorage.setItem(BUILD_KEY,BUILD_VERSION);
-    }finally{applying=false;}
+  function parts(v){return String(v||'').split('.').map(x=>parseInt(x,10)||0)}
+  function cmp(a,b){const A=parts(a),B=parts(b),n=Math.max(A.length,B.length);for(let i=0;i<n;i++){const d=(A[i]||0)-(B[i]||0);if(d)return d}return 0}
+  function current(){
+    const attr=document.documentElement.getAttribute('data-fieldverify-version')||'';
+    const global=String(window.FIELDVERIFY_BUILD||'');
+    const stored=localStorage.getItem(BUILD_KEY)||'';
+    let best='';
+    for(const v of [attr,global,stored])if(v&&(!best||cmp(v,best)>0))best=v;
+    return best;
   }
-
-  applyVersion();
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyVersion,{once:true});
-  setTimeout(applyVersion,150);
-  setTimeout(applyVersion,500);
-  setTimeout(applyVersion,1500);
-
-  const observer=new MutationObserver(()=>applyVersion());
-  observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['data-fieldverify-version']});
-
-  window.FIELDVERIFY_BUILD=BUILD_VERSION;
-  window.FieldVerifyApplyVersion=applyVersion;
-  console.info(`FieldVerify build lock ${BUILD_VERSION} loaded`);
+  function applyLegacyOnly(){
+    const cur=current();
+    if(cur&&cmp(cur,LEGACY_VERSION)>0)return;
+    const title=document.querySelector('.top .title');
+    if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${LEGACY_VERSION} stable</span>`;
+    document.title=`FieldVerify Pro v${LEGACY_VERSION}`;
+    document.documentElement.setAttribute('data-fieldverify-version',LEGACY_VERSION);
+    try{localStorage.setItem(BUILD_KEY,LEGACY_VERSION)}catch{}
+  }
+  // Apply only if no newer build lock exists. Do not observe mutations and do
+  // not keep reapplying this legacy version.
+  setTimeout(applyLegacyOnly,50);
+  console.info('FieldVerify legacy v10.20 lock disabled when newer build is present');
 })();
