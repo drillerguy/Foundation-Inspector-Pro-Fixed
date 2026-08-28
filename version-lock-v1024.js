@@ -1,5 +1,5 @@
 (()=>{
-  const BUILD='10.25.15';
+  const BUILD='10.25.16';
   function apply(){
     const title=document.querySelector('.top .title');
     if(title && !String(title.textContent||'').includes(`v${BUILD}`)) title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;
@@ -12,12 +12,12 @@
     const s=document.createElement('script');s.src=src;s.async=false;s.dataset.fieldverifyHotfix=key;s.onerror=()=>console.error('FieldVerify hotfix failed to load: '+key);document.body.appendChild(s);
   }
   function loadHotfixes(){
-    loadScript('./drawing-manager-v1024.js?v=10.25.15','drawing-manager-v1024.js?v=10.25.15');
-    loadScript('./drawing-delete-page-v1024.js?v=10.25.15','drawing-delete-page-v1024.js?v=10.25.15');
-    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.15','caisson-final-workbook-import-v10253.js?v=10.25.15');
-    loadScript('./poured-status-v10254.js?v=10.25.15','poured-status-v10254.js?v=10.25.15');
-    loadScript('./inspection-status-fix-v10257.js?v=10.25.15','inspection-status-fix-v10257.js?v=10.25.15');
-    loadScript('./ers-readable-numbers-v102512.js?v=10.25.15','ers-readable-numbers-v102512.js?v=10.25.15');
+    loadScript('./drawing-manager-v1024.js?v=10.25.16','drawing-manager-v1024.js?v=10.25.16');
+    loadScript('./drawing-delete-page-v1024.js?v=10.25.16','drawing-delete-page-v1024.js?v=10.25.16');
+    loadScript('./caisson-final-workbook-import-v10253.js?v=10.25.16','caisson-final-workbook-import-v10253.js?v=10.25.16');
+    loadScript('./poured-status-v10254.js?v=10.25.16','poured-status-v10254.js?v=10.25.16');
+    loadScript('./inspection-status-fix-v10257.js?v=10.25.16','inspection-status-fix-v10257.js?v=10.25.16');
+    loadScript('./ers-touch-magnifier-v102516.js?v=10.25.16','ers-touch-magnifier-v102516.js?v=10.25.16');
   }
   apply();loadHotfixes();
   setTimeout(apply,150);setTimeout(apply,800);setTimeout(loadHotfixes,500);setTimeout(loadHotfixes,1500);
