@@ -1,13 +1,13 @@
 (()=>{
 'use strict';
-const VERSION='10.25.35-ers-tieback-clean-page-numbers';
+const VERSION='10.25.36-ers-tieback-waler-clean-numbers';
 const filter=document.getElementById('itemFilter');
 const map=document.getElementById('map');
 const plan=document.getElementById('planImage');
 if(!filter||!map||!plan)return;
 const META_KEY='fieldVerifyDrawingLibraryV1024';
-let down=null,lastTap=0;
-function active(){return filter.value==='ERS'||filter.value==='Tieback'}
+let down=null,lastTap=0,walerStart=null;
+function active(){return filter.value==='ERS'||filter.value==='Tieback'||filter.value==='Waler'}
 function say(s){try{toast(s)}catch{}}
 function ensureStyle(){if(document.getElementById('fvErsCropStyle'))return;const s=document.createElement('style');s.id='fvErsCropStyle';s.textContent=`
 #map.fv-ers-crop-active,#map.fv-ers-crop-active img{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -19,6 +19,7 @@ function ensureStyle(){if(document.getElementById('fvErsCropStyle'))return;const
 #fvErsCropOverlay{position:absolute;inset:0;pointer-events:none}
 #fvErsCropOverlay .fv-page-virtual{position:absolute;transform:translate(-50%,-50%);min-width:82px;height:50px;padding:0 8px;border:3px solid #c32727;border-radius:10px;background:#fff;color:#8e1717;font-size:21px;font-weight:900;line-height:42px;text-align:center;box-shadow:0 2px 8px #0007;pointer-events:auto;touch-action:manipulation}
 #fvErsCropOverlay .fv-page-virtual:active{background:#16803d;color:#fff;border-color:#fff}
+#fvErsCropOverlay .fv-waler-first{background:#fff3cd;border-color:#b77900;color:#6b4700}
 #fvErsCropClose{width:100%;min-height:48px;margin-top:10px;border-radius:12px;background:#e7edf4;color:#16202a;font-weight:900}
 @media(max-width:520px){#fvErsCropOverlay .fv-page-virtual{min-width:66px;height:44px;font-size:16px;line-height:36px}}
 `;document.head.appendChild(s)}
@@ -28,10 +29,10 @@ function drawingLabel(){const f=drawingSelect();const opt=f&&f.options&&f.select
 function drawingMeta(){try{const f=drawingSelect(),id=f&&f.value;if(!id)return null;const rows=JSON.parse(localStorage.getItem(META_KEY)||'[]');if(!Array.isArray(rows))return null;return rows.find(x=>x&&x.id===id)||null}catch{return null}}
 function sheetNumber(){
  const label=drawingLabel().toUpperCase();
- let m=label.match(/(?:ERS|TIEBACK)\s*[-_ ]?\s*(\d+)/);if(m)return Number(m[1]);
+ let m=label.match(/(?:ERS|TIEBACK|WALER)\s*[-_ ]?\s*(\d+)/);if(m)return Number(m[1]);
  const meta=drawingMeta();
  const parts=[meta&&meta.description,meta&&meta.baseDescription,meta&&meta.name].filter(Boolean).join(' ').toUpperCase();
- m=parts.match(/(?:ERS|TIEBACK)\s*[-_ ]?\s*(\d+)/);if(m)return Number(m[1]);
+ m=parts.match(/(?:ERS|TIEBACK|WALER)\s*[-_ ]?\s*(\d+)/);if(m)return Number(m[1]);
  const p=Number(meta&&meta.pageNumber);if(Number.isInteger(p)&&p>0)return p;
  const pageMatch=label.match(/PAGE\s+(\d+)/);if(pageMatch)return Number(pageMatch[1]);
  return null
@@ -40,32 +41,53 @@ function pageNumbers(){
  if(!active())return[];
  const page=sheetNumber();
  if(!Number.isInteger(page)||page<1)return[];
- // Shared sheet numbering workflow. User-confirmed anchor: page 6 contains E-244 through E-233.
  const start=244+(6-page)*12;
  const nums=[];for(let i=0;i<12;i++){const n=start-i;if(n>0)nums.push(n)}return nums;
 }
 function displayId(n){return `E-${n}`}
-function selectNumber(n){try{const id=displayId(n);if(typeof records!=='undefined'&&typeof rec==='function'){records[n]={...rec(n),itemType:filter.value,itemLabel:id};if(typeof persist==='function')persist()}if(typeof selected!=='undefined')selected=n;const q=document.getElementById('search');if(q)q.value=id;if(typeof showTarget==='function')showTarget();say(`${filter.value==='ERS'?'Sheet Number':'Tieback'} ${id} selected`)}catch(e){console.warn('ERS/Tieback crop select failed',e)}}
+function walerKey(a,b){const lo=Math.min(a,b),hi=Math.max(a,b);return 900000000+lo*1000+hi}
+function selectWalerEndpoint(n){
+ try{
+   if(walerStart==null){walerStart=n;closeModal();say(`Waler start ${displayId(n)} selected. Tap the drawing and choose the ending tie.`);return}
+   const first=walerStart;walerStart=null;
+   const lo=Math.min(first,n),hi=Math.max(first,n),span=hi-lo;
+   if(span>12){say('A waler can span up to 12 tie numbers. Choose an ending tie within 12.');walerStart=first;return}
+   const key=walerKey(first,n),label=first===n?displayId(n):`${displayId(lo)}–${displayId(hi)}`;
+   if(typeof records!=='undefined'&&typeof rec==='function'){
+     records[key]={...rec(key),itemType:'Waler',itemLabel:label,walerStart:lo,walerEnd:hi,coveredTies:Array.from({length:hi-lo+1},(_,i)=>lo+i)};
+     if(typeof persist==='function')persist();
+   }
+   if(typeof selected!=='undefined')selected=key;
+   const q=document.getElementById('search');if(q)q.value=label;
+   closeModal();if(typeof showTarget==='function')showTarget();
+   say(`Waler ${label} selected`);
+ }catch(e){console.warn('Waler range select failed',e)}
+}
+function selectNumber(n){
+ if(filter.value==='Waler'){selectWalerEndpoint(n);return}
+ try{const id=displayId(n);if(typeof records!=='undefined'&&typeof rec==='function'){records[n]={...rec(n),itemType:filter.value,itemLabel:id};if(typeof persist==='function')persist()}if(typeof selected!=='undefined')selected=n;const q=document.getElementById('search');if(q)q.value=id;if(typeof showTarget==='function')showTarget();say(`${filter.value==='ERS'?'Sheet Number':'Tieback'} ${id} selected`)}catch(e){console.warn('ERS/Tieback crop select failed',e)}
+}
 function mapPoint(clientX,clientY){const r=plan.getBoundingClientRect();if(!r.width||!r.height)return null;const x=clientX-r.left,y=clientY-r.top;if(x<0||y<0||x>r.width||y>r.height)return null;return{x,y,r,nx:x/r.width,ny:y/r.height}}
-function addVirtualButtons(overlay,nums){if(!nums.length)return;const count=nums.length;for(let i=0;i<count;i++){const n=nums[i],id=displayId(n),b=document.createElement('button');b.type='button';b.className='fv-page-virtual';b.textContent=id;const x=5+(90*(i/(count-1)));const y=(i%2===0)?73:82;b.style.left=x+'%';b.style.top=y+'%';b.setAttribute('aria-label',`Select ${filter.value} ${id}`);b.onclick=()=>{closeModal();selectNumber(n)};overlay.appendChild(b)}}
+function addVirtualButtons(overlay,nums){if(!nums.length)return;const count=nums.length;for(let i=0;i<count;i++){const n=nums[i],id=displayId(n),b=document.createElement('button');b.type='button';b.className='fv-page-virtual'+(filter.value==='Waler'&&walerStart===n?' fv-waler-first':'');b.textContent=id;const x=5+(90*(i/(count-1)));const y=(i%2===0)?73:82;b.style.left=x+'%';b.style.top=y+'%';b.setAttribute('aria-label',`Select ${filter.value} ${id}`);b.onclick=()=>selectNumber(n);overlay.appendChild(b)}}
 function drawCrop(clientX,clientY){
  const pt=mapPoint(clientX,clientY);if(!pt){say('Tap directly on the drawing');return}closeModal();
  const page=sheetNumber(),nums=pageNumbers(),type=filter.value;
- const modal=document.createElement('div');modal.id='fvErsCropModal';modal.innerHTML=`<div id="fvErsCropCard"><h3>Select ${type==='ERS'?'sheet':'tieback'} number</h3><p>Tap the clean number directly over the enlarged drawing.</p><div id="fvErsCropStage"><canvas id="fvErsCropCanvas" width="1200" height="1200"></canvas><div id="fvErsCropOverlay"></div></div><button id="fvErsCropClose" type="button">Close</button></div>`;
+ const title=type==='ERS'?'Select sheet number':type==='Tieback'?'Select tieback number':(walerStart==null?'Select first tie for Waler':'Select ending tie for Waler');
+ const help=type==='Waler'?(walerStart==null?'Tap the first tie covered by this waler.':'Tap the last tie covered by this waler. Maximum span is 12 tie numbers.'):'Tap the clean number directly over the enlarged drawing.';
+ const modal=document.createElement('div');modal.id='fvErsCropModal';modal.innerHTML=`<div id="fvErsCropCard"><h3>${title}</h3><p>${help}</p><div id="fvErsCropStage"><canvas id="fvErsCropCanvas" width="1200" height="1200"></canvas><div id="fvErsCropOverlay"></div></div><button id="fvErsCropClose" type="button">Close</button></div>`;
  document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});modal.querySelector('#fvErsCropClose').onclick=closeModal;
  const canvas=modal.querySelector('#fvErsCropCanvas'),ctx=canvas.getContext('2d'),nw=plan.naturalWidth||Math.round(pt.r.width),nh=plan.naturalHeight||Math.round(pt.r.height),cx=pt.nx*nw,cy=pt.ny*nh;
  const crop=Math.max(120,Math.min(nw,nh)*.12),sw=Math.min(crop,nw),sh=Math.min(crop,nh);let sx=cx-sw/2,sy=cy-sh/2;sx=Math.max(0,Math.min(nw-sw,sx));sy=Math.max(0,Math.min(nh-sh,sy));
- try{ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(plan,sx,sy,sw,sh,0,0,canvas.width,canvas.height)}catch(e){console.warn('ERS/Tieback crop draw',e);say('Could not enlarge this drawing area')}
+ try{ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(plan,sx,sy,sw,sh,0,0,canvas.width,canvas.height)}catch(e){console.warn('ERS/Tieback/Waler crop draw',e);say('Could not enlarge this drawing area')}
  addVirtualButtons(modal.querySelector('#fvErsCropOverlay'),nums);
  if(!nums.length)say(`${type} page could not be identified. Open the Pages menu and reselect this sheet.`);
- else console.info(`${type} virtual numbers: sheet/page ${page}, ${displayId(nums[0])} through ${displayId(nums[nums.length-1])}`)
 }
-function syncMode(){if(active())map.classList.add('fv-ers-crop-active');else{map.classList.remove('fv-ers-crop-active');closeModal()}}
+function syncMode(){if(active())map.classList.add('fv-ers-crop-active');else{map.classList.remove('fv-ers-crop-active');closeModal();walerStart=null}}
 map.addEventListener('pointerdown',e=>{if(!active()||(e.target.closest&&e.target.closest('button,input,select,textarea')))return;down={x:e.clientX,y:e.clientY,moved:false}},{passive:true});
 map.addEventListener('pointermove',e=>{if(!down)return;const dx=e.clientX-down.x,dy=e.clientY-down.y;if(Math.sqrt(dx*dx+dy*dy)>12)down.moved=true},{passive:true});
 map.addEventListener('pointercancel',()=>{down=null},{passive:true});
 map.addEventListener('pointerup',e=>{if(!down)return;const d=down;down=null;if(!active()||d.moved)return;const now=Date.now();if(now-lastTap<280){lastTap=0;return}lastTap=now;drawCrop(e.clientX,e.clientY)},{passive:true});
 map.addEventListener('dblclick',e=>{if(active()){e.preventDefault();e.stopImmediatePropagation()}},true);
 filter.addEventListener('change',syncMode,true);document.addEventListener('change',e=>{if(e.target&&e.target.id==='drawingFilter')closeModal()},true);
-ensureStyle();syncMode();window.FIELDVERIFY_ERS_TOUCH={version:VERSION,close:closeModal,openAt:drawCrop,sheetNumber};console.info(`FieldVerify ERS/Tieback crop picker ${VERSION} loaded`);
+ensureStyle();syncMode();window.FIELDVERIFY_ERS_TOUCH={version:VERSION,close:closeModal,openAt:drawCrop,sheetNumber};console.info(`FieldVerify ERS/Tieback/Waler picker ${VERSION} loaded`);
 })();
