@@ -1,10 +1,7 @@
 (()=>{
 'use strict';
-const VERSION='10.25.34-dropdown-title-preserve-id';
-function rawId(v,n){
-  const raw=String(v||'').trim();
-  return raw||String(n);
-}
+const VERSION='10.25.36-dropdown-title-preserve-id-waler';
+function rawId(v,n){const raw=String(v||'').trim();return raw||String(n)}
 function formatItemName(n,r){
   try{
     const filter=document.getElementById('itemFilter');
@@ -12,9 +9,10 @@ function formatItemName(n,r){
     const recordType=(typeof itemType==='function'?itemType(r):(r&&r.itemType)||'Caisson');
     const type=selectedType||recordType||'Caisson';
     const id=rawId(r&&r.itemLabel,n);
-    if(type==='ERS') return `Sheet Number ${id}`;
-    if(type==='Tieback') return `Tieback ${id}`;
-    if(type==='Caisson') return `Caisson ${id}`;
+    if(type==='ERS')return `Sheet Number ${id}`;
+    if(type==='Tieback')return `Tieback ${id}`;
+    if(type==='Waler')return `Waler ${id}`;
+    if(type==='Caisson')return `Caisson ${id}`;
     return `${type} ${id}`;
   }catch{return String(n)}
 }
