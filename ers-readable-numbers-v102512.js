@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='10.25.14-readable-numbers-3';
+const VERSION='10.25.15-readable-numbers-4';
 const filter=document.getElementById('itemFilter');
 const map=document.getElementById('map');
 const plan=document.getElementById('planImage');
@@ -19,23 +19,24 @@ function ensureStyle(){if(document.getElementById('fvReadableNumbersStyle'))retu
 @media(max-width:760px){#fvReadableNumbers .fv-num{min-width:58px;height:42px;padding:0 10px;font-size:20px;line-height:36px;border-width:3px}}
 `;
 document.head.appendChild(s)}
-function clear(){const l=document.getElementById('fvReadableNumbers');if(l)l.replaceChildren()}
-function currentRow(){const sel=document.getElementById('drawingFilter');const id=sel?.value||'';if(!id)return null;return readMeta().find(x=>x.id===id)||null}
+function clear(){const l=document.getElementById('fvReadableNumbers');if(l){while(l.firstChild)l.removeChild(l.firstChild)}}
+function currentRow(){const sel=document.getElementById('drawingFilter');const id=sel&&sel.value||'';if(!id)return null;return readMeta().find(x=>x.id===id)||null}
 async function pdfSource(row){
  if(!row)return null;
- if(row.sourceId){const src=await getSetting(row.sourceId);if(src?.blob)return{blob:src.blob,page:Number(row.pageNumber)||1}}
- const item=await getSetting(row.id);if(item?.blob)return{blob:item.blob,page:Number(item.pageNumber||row.pageNumber)||1};
+ if(row.sourceId){const src=await getSetting(row.sourceId);if(src&&src.blob)return{blob:src.blob,page:Number(row.pageNumber)||1}}
+ const item=await getSetting(row.id);if(item&&item.blob)return{blob:item.blob,page:Number(item.pageNumber||row.pageNumber)||1};
  return null;
 }
 async function openPdf(blob){
- if(typeof pdfInfo==='function')return pdfInfo(blob);
+ if(typeof pdfInfo==='function')return await pdfInfo(blob);
  const pdfjs=await import('./pdf.min.mjs');
- pdfjs.GlobalWorkerOptions.workerSrc='./pdf.worker.min.mjs';
- return pdfjs.getDocument({data:await blob.arrayBuffer()}).promise;
+ if(pdfjs.GlobalWorkerOptions)pdfjs.GlobalWorkerOptions.workerSrc='./pdf.worker.min.mjs';
+ if(!pdfjs.getDocument)throw Error('PDF reader is unavailable');
+ return await pdfjs.getDocument({data:await blob.arrayBuffer()}).promise;
 }
-function numberMatches(str){const out=[];const s=String(str||'');const re=/\d{3}/g;let m;while((m=re.exec(s))){const n=Number(m[0]);if(n>=100&&n<=499)out.push({n,index:m.index,text:m[0]})}return out}
+function numberMatches(str){const out=[];const s=String(str||'');const re=/\d{3}/g;let m;while((m=re.exec(s))!==null){const n=Number(m[0]);if(n>=100&&n<=499)out.push({n,index:m.index})}return out}
 function selectNumber(n,button){try{
- document.querySelectorAll('#fvReadableNumbers .fv-selected').forEach(x=>x.classList.remove('fv-selected'));button?.classList.add('fv-selected');
+ document.querySelectorAll('#fvReadableNumbers .fv-selected').forEach(x=>x.classList.remove('fv-selected'));if(button)button.classList.add('fv-selected');
  if(typeof records!=='undefined'&&typeof rec==='function'){records[n]={...rec(n),itemType:filter.value,itemLabel:String(n)};if(typeof persist==='function')persist()}
  if(typeof selected!=='undefined')selected=n;
  if(typeof showTarget==='function')showTarget();
@@ -48,40 +49,48 @@ function addButton(layer,seen,n,xp,yp){
  seen.push({n,x:xp,y:yp});
  const b=document.createElement('button');b.type='button';b.className='fv-num';b.textContent=String(n);b.dataset.n=String(n);b.style.left=xp+'%';b.style.top=yp+'%';b.title=`${filter.value} ${n}`;b.setAttribute('aria-label',`${filter.value} ${n}`);b.onclick=e=>{e.preventDefault();e.stopPropagation();selectNumber(n,b)};layer.appendChild(b);
 }
+function viewportPoint(viewport,x,y){
+ const t=viewport&&viewport.transform;
+ if(Array.isArray(t)&&t.length>=6)return [t[0]*x+t[2]*y+t[4],t[1]*x+t[3]*y+t[5]];
+ if(viewport&&typeof viewport.convertToViewportPoint==='function')return viewport.convertToViewportPoint(x,y);
+ throw Error('PDF viewport transform is unavailable');
+}
 async function render(){
  const token=++runToken;clear();if(!active())return;
- const row=currentRow();if(!row){if(typeof toast==='function')toast('Open an ERS drawing page first');return}
+ const row=currentRow();if(!row)return;
  try{
-  const src=await pdfSource(row);if(!src?.blob)throw Error('PDF source is not stored for this drawing page');
+  const src=await pdfSource(row);if(!src||!src.blob)throw Error('PDF source is not stored for this drawing page');
   const pdf=await openPdf(src.blob);if(token!==runToken)return;
-  const page=await pdf.getPage(Math.max(1,Math.min(pdf.numPages,src.page)));
+  if(!pdf||typeof pdf.getPage!=='function')throw Error('PDF page reader is unavailable');
+  const count=Number(pdf.numPages)||1,pageNo=Math.max(1,Math.min(count,Number(src.page)||1));
+  const page=await pdf.getPage(pageNo);if(!page||typeof page.getViewport!=='function'||typeof page.getTextContent!=='function')throw Error('PDF text reader is unavailable');
   const viewport=page.getViewport({scale:1});
   const text=await page.getTextContent();if(token!==runToken)return;
-  const layer=ensureLayer(),seen=[];
-  for(const item of text.items||[]){
-   if(!item.transform)continue;
+  const layer=ensureLayer(),seen=[],items=Array.isArray(text&&text.items)?text.items:[];
+  for(const item of items){
+   if(!item||!Array.isArray(item.transform))continue;
    const matches=numberMatches(item.str);if(!matches.length)continue;
    const a=Number(item.transform[0])||1,b=Number(item.transform[1])||0;
-   const mag=Math.hypot(a,b)||1,ux=a/mag,uy=b/mag;
+   const mag=Math.sqrt(a*a+b*b)||1,ux=a/mag,uy=b/mag;
    const baseX=Number(item.transform[4])||0,baseY=Number(item.transform[5])||0;
    const width=Number(item.width)||0,str=String(item.str||'');
    for(const m of matches){
     const frac=str.length?Math.min(1,Math.max(0,(m.index+1.5)/str.length)):.5;
     const px=baseX+ux*width*frac,py=baseY+uy*width*frac;
-    const vp=viewport.convertToViewportPoint(px,py);
+    const vp=viewportPoint(viewport,px,py);
     addButton(layer,seen,m.n,vp[0]/viewport.width*100,vp[1]/viewport.height*100);
    }
   }
-  try{page.cleanup?.()}catch{}
+  try{if(page&&typeof page.cleanup==='function')page.cleanup()}catch{}
   if(typeof toast==='function')toast(seen.length?`${seen.length} readable ${filter.value} numbers loaded`:`No 3-digit ${filter.value} numbers found on this page`);
- }catch(err){console.warn('Readable ERS numbers unavailable',err);if(typeof toast==='function')toast(`ERS numbers could not load: ${err.message||err}`)}
+ }catch(err){console.warn('Readable ERS numbers unavailable',err);if(typeof toast==='function')toast(`ERS numbers could not load: ${err&&err.message?err.message:String(err)}`)}
 }
 function schedule(){clearTimeout(timer);timer=setTimeout(render,250)}
 ensureStyle();
 filter.addEventListener('change',schedule);
-document.addEventListener('change',e=>{if(e.target?.id==='drawingFilter')schedule()},true);
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='drawingFilter')schedule()},true);
 new MutationObserver(schedule).observe(plan,{attributes:true,attributeFilter:['src']});
-document.addEventListener('click',e=>{if(e.target?.closest?.('.fv-page-card,.fvSafePageGrid,.fvSafePages'))setTimeout(schedule,600)},true);
+document.addEventListener('click',e=>{const t=e.target;if(t&&typeof t.closest==='function'&&t.closest('.fv-page-card,.fvSafePageGrid,.fvSafePages'))setTimeout(schedule,600)},true);
 setTimeout(schedule,1000);
 window.FIELDVERIFY_READABLE_ERS_NUMBERS={version:VERSION,refresh:schedule};
 console.info(`FieldVerify readable ERS numbers ${VERSION} loaded`);
