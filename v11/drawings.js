@@ -4,7 +4,6 @@ let pdfModule=null;
 async function pdfjs(){if(!pdfModule){pdfModule=await import('../pdf.min.mjs');pdfModule.GlobalWorkerOptions.workerSrc=new URL('../pdf.worker.min.mjs',import.meta.url).href}return pdfModule}
 const isPdf=x=>String(x?.type||'').includes('pdf')||String(x?.name||'').toLowerCase().endsWith('.pdf');
 const cleanName=name=>String(name||'Drawing').replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim()||'Drawing';
-const APP_CAISSON_ID='app:caisson-plan';
 
 export class DrawingManager{
   constructor({img,statusEl,onChange}){this.img=img;this.statusEl=statusEl;this.onChange=onChange;this.projectId='';this.category='';this.token=0;this.objectUrl=null;this.meta=[]}
@@ -14,23 +13,19 @@ export class DrawingManager{
   releaseUrl(){if(this.objectUrl){try{URL.revokeObjectURL(this.objectUrl)}catch{}this.objectUrl=null}}
   clearDisplay(text='No drawing loaded'){this.releaseUrl();this.img.removeAttribute('src');this.img.alt=text;this.status(text);this.onChange?.(null)}
 
-  /* Called only after the user chooses a work-type dropdown.
-     It loads small drawing metadata only — never PDF/image bytes. */
+  /* Work-type selection loads metadata only. No app-bundled project drawings exist in v11. */
   async loadMetadata(){
     if(!this.projectId||!this.category){this.meta=[];return[]}
-    const rows=await listDrawings(this.projectId,this.category);
-    this.meta=this.category==='Caisson'?[{id:APP_CAISSON_ID,projectId:this.projectId,category:'Caisson',description:'Built-in Caisson Plan',pageNumber:1,pageCount:1,source:'app'},...rows]:rows;
-    return this.meta;
+    this.meta=await listDrawings(this.projectId,this.category);
+    return this.meta
   }
   rows(){return this.meta.slice()}
   activeId(){return getActiveDrawing(this.projectId,this.category)}
 
-  /* This is the first point at which drawing bytes are loaded. It is invoked only
-     after a user selects a drawing/page from a dropdown or Pages list. */
+  /* Actual drawing bytes are loaded only after the user explicitly selects a drawing/page. */
   async openById(id){
     const row=this.meta.find(x=>String(x.id)===String(id));if(!row)return null;
     setActiveDrawing(this.projectId,this.category,row.id);
-    if(row.source==='app'){this.token++;this.releaseUrl();this.img.src='../caisson-plan.png';this.img.alt='Built-in Caisson Plan';this.status(this.label(row));this.onChange?.(row);return row}
     await this.open(row);return row
   }
 
