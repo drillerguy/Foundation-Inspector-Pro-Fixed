@@ -1,9 +1,9 @@
-import{projectDirectory,loadRecordIndex,loadRecord,saveRecord,getPhoto,savePhoto,newId,saveAppPrefs}from'./storage.js';
+import{projectDirectory,saveProject,loadRecordIndex,loadRecord,saveRecord,getPhoto,savePhoto,newId,saveAppPrefs}from'./storage.js';
 import{DrawingManager}from'./drawings.js';
-import{itemTitle,statusText,pinVisual,progressStages,progressViewOptions,stageDone,setProgressStage,progressPalette}from'./status.js';
+import{itemTitle,statusText,progressStages,progressViewOptions,stageDone,setProgressStage,progressPalette}from'./status.js';
 
 const $=id=>document.getElementById(id);
-const projectSelect=$('projectSelect'),itemType=$('itemType'),progressView=$('progressView'),drawingSelect=$('drawingSelect'),pagesBtn=$('pagesBtn'),loadDrawingBtn=$('loadDrawingBtn'),drawingInput=$('drawingInput'),cameraInput=$('cameraInput'),libraryInput=$('libraryInput'),itemSelect=$('itemSelect'),itemSearch=$('itemSearch'),openItemBtn=$('openItemBtn'),panel=$('panel'),pins=$('pins'),planImage=$('planImage'),saveState=$('saveState'),toastEl=$('toast'),progressLegend=$('progressLegend');
+const projectSelect=$('projectSelect'),newProjectBtn=$('newProjectBtn'),itemType=$('itemType'),progressView=$('progressView'),drawingSelect=$('drawingSelect'),pagesBtn=$('pagesBtn'),loadDrawingBtn=$('loadDrawingBtn'),drawingInput=$('drawingInput'),cameraInput=$('cameraInput'),libraryInput=$('libraryInput'),itemSelect=$('itemSelect'),itemSearch=$('itemSearch'),openItemBtn=$('openItemBtn'),panel=$('panel'),pins=$('pins'),planImage=$('planImage'),saveState=$('saveState'),toastEl=$('toast'),progressLegend=$('progressLegend');
 let activeProjectId='',activeType='',recordIndex=[],activeItemKey='',activeRecord=null,photoUrls=[];
 
 function toast(text){toastEl.textContent=text;toastEl.classList.remove('hidden');clearTimeout(toastEl._t);toastEl._t=setTimeout(()=>toastEl.classList.add('hidden'),2600)}
@@ -15,9 +15,19 @@ function esc(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&l
 
 const drawings=new DrawingManager({img:planImage,statusEl:$('drawingStatus'),onChange:()=>{}});
 
-async function boot(){
+async function refreshProjectSelect(selectId=''){
   const projects=await projectDirectory();
+  projectSelect.innerHTML='';projectSelect.appendChild(option('','Choose project…'));
   for(const p of projects)projectSelect.appendChild(option(String(p.id),p.name||`Project ${p.id}`));
+  if(selectId&&projects.some(p=>String(p.id)===String(selectId)))projectSelect.value=String(selectId);
+  return projects
+}
+
+async function boot(){
+  const projects=await refreshProjectSelect();
+  if(!projects.length){
+    panel.innerHTML='<div class="card"><h2>No projects yet</h2><p>Tap <b>+ New Project</b> to create your first project. Drawings and inspections are added after the project is created.</p></div>';
+  }
   saveState.textContent='Ready';
 }
 
@@ -30,11 +40,29 @@ function clearUserContent(){
   drawings.setContext(activeProjectId,'');
 }
 
+function openNewProject(){
+  const root=$('modalRoot');
+  root.innerHTML=`<div class="modal"><div class="modal-box"><div class="modal-head"><h2>New Project</h2><button id="cancelNewProject" type="button">Cancel</button></div><form id="newProjectForm"><label class="form-label">Project Name<input id="newProjectName" class="field" autocomplete="off" required placeholder="Project name"></label><label class="form-label">Project Number<input id="newProjectNumber" class="field" autocomplete="off" placeholder="Optional"></label><label class="form-label">Client / Owner<input id="newProjectClient" class="field" autocomplete="off" placeholder="Optional"></label><label class="form-label">Location<input id="newProjectLocation" class="field" autocomplete="off" placeholder="Optional"></label><div class="modal-actions"><button id="cancelNewProject2" type="button">Cancel</button><button class="good" type="submit">Create Project</button></div></form></div></div>`;
+  const close=()=>root.innerHTML='';$('cancelNewProject').onclick=close;$('cancelNewProject2').onclick=close;
+  $('newProjectForm').onsubmit=async e=>{
+    e.preventDefault();const name=$('newProjectName').value.trim();if(!name){toast('Enter a project name');return}
+    saveLabel('Creating project…');
+    try{
+      const project=await saveProject({id:newId('project'),name,number:$('newProjectNumber').value.trim(),client:$('newProjectClient').value.trim(),location:$('newProjectLocation').value.trim(),createdAt:new Date().toISOString()});
+      activeProjectId=String(project.id);await refreshProjectSelect(activeProjectId);saveAppPrefs({lastProjectId:activeProjectId});close();clearUserContent();itemType.disabled=false;
+      panel.innerHTML=`<div class="card"><h2>${esc(project.name)}</h2><p>Project created. Choose a work type, then add that project's drawings or open an inspection item.</p></div>`;saveLabel('Project created');toast('Project created')
+    }catch(err){console.error(err);saveLabel('Ready');toast(`Project could not be created: ${err.message||err}`)}
+  };
+  setTimeout(()=>$('newProjectName')?.focus(),50)
+}
+newProjectBtn.addEventListener('click',openNewProject);
+
 projectSelect.addEventListener('change',()=>{
   activeProjectId=projectSelect.value;
   saveAppPrefs({lastProjectId:activeProjectId});
   clearUserContent();
   if(activeProjectId){itemType.disabled=false;panel.innerHTML='<div class="card"><h2>Project selected</h2><p>Now choose Caisson, ERS, Tieback, Waler, or another work type. Nothing heavy has loaded yet.</p></div>'}
+  else panel.innerHTML='<div class="card"><h2>Choose or create a project</h2><p>Tap <b>+ New Project</b> if this is a new job.</p></div>'
 });
 
 function configureProgressView(){
@@ -61,7 +89,7 @@ itemType.addEventListener('change',async()=>{
   drawingSelect.disabled=!drawingRows.length;pagesBtn.disabled=!drawingRows.length;
   populateItems();renderPinsFromIndex();
   const layers=progressStages(activeType);
-  panel.innerHTML=`<div class="card"><h2>${esc(activeType)}</h2><p>${recordIndex.length} saved inspection item${recordIndex.length===1?'':'s'} indexed. Select an item to load its inspection. Select a drawing/page to load that drawing file.</p>${layers.length?`<p><b>${layers.length} progress layers:</b> ${layers.map(x=>esc(x.label)).join(' · ')}</p>`:''}</div>`;
+  panel.innerHTML=`<div class="card"><h2>${esc(activeType)}</h2><p>${recordIndex.length} saved inspection item${recordIndex.length===1?'':'s'} indexed. Enter or select an item to load its inspection. Add or select a drawing/page to load that project drawing.</p>${layers.length?`<p><b>${layers.length} progress layers:</b> ${layers.map(x=>esc(x.label)).join(' · ')}</p>`:''}</div>`;
   saveLabel('Lists ready');
 });
 
@@ -69,23 +97,14 @@ progressView.addEventListener('change',()=>{saveAppPrefs({[`progressView:${activ
 
 function populateItems(){
   resetSelect(itemSelect,'Choose inspection item…');
-  const map=new Map(recordIndex.map(x=>[String(x.itemKey),x]));
-  if(activeType==='Caisson')for(const h of window.FOUNDATION_CAISSON_DATA?.HOTSPOTS||[]){const k=String(h.caisson);if(!map.has(k))map.set(k,{itemKey:k,label:k,status:'No information',started:false,complete:false,photoCount:0,progress:{}})}
-  const rows=[...map.values()].sort((a,b)=>String(a.label||a.itemKey).localeCompare(String(b.label||b.itemKey),undefined,{numeric:true,sensitivity:'base'}));
+  const rows=[...recordIndex].sort((a,b)=>String(a.label||a.itemKey).localeCompare(String(b.label||b.itemKey),undefined,{numeric:true,sensitivity:'base'}));
   for(const x of rows)itemSelect.appendChild(option(String(x.itemKey),String(x.label||x.itemKey)));
   itemSelect.disabled=!rows.length;itemSearch.disabled=false;openItemBtn.disabled=false;
 }
 
-function renderPinsFromIndex(){
-  pins.innerHTML='';if(activeType!=='Caisson')return;
-  const byKey=new Map(recordIndex.map(x=>[String(x.itemKey),x]));
-  for(const h of window.FOUNDATION_CAISSON_DATA?.HOTSPOTS||[]){
-    const key=String(h.caisson),summary=byKey.get(key)||{itemKey:key,label:key,status:'No information',started:false,complete:false,progress:{},itemType:'Caisson'},b=document.createElement('button');b.type='button';b.className='pin';
-    const visual=pinVisual({...summary,itemType:activeType},activeType,progressView.value||'overall');b.style.setProperty('--pin-color',visual.color);
-    if(summary.complete)b.classList.add('done');if(String(summary.ncrState||'').toLowerCase()==='open')b.classList.add('ncr-open');
-    b.style.left=`${h.x}%`;b.style.top=`${h.y}%`;b.textContent=key;b.title=`Caisson ${key} · ${visual.label}`;b.onclick=()=>openInspection(key);pins.appendChild(b)
-  }
-}
+/* v11 has no app-bundled project plan or hard-coded caisson locations.
+   Drawing overlays will come only from the selected project's user data. */
+function renderPinsFromIndex(){pins.innerHTML=''}
 
 async function openInspection(key){
   if(!activeProjectId||!activeType||!key)return;
