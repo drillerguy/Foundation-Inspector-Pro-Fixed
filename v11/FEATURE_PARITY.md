@@ -5,12 +5,13 @@ v11 is not considered ready to replace production until the field workflow below
 ## Restored / active now
 - Separate app code and user data storage
 - Project selection
+- New Project creation for a brand-new user
+- No project drawing or caisson plan bundled into the v11 app
 - Work type selection: Caisson, ERS, Tieback, Waler, Footing, Column, Custom
 - Lazy inspection index loading
 - Lazy drawing metadata loading
 - Lazy single-page PDF/image drawing loading
 - Lightweight Pages list
-- Caisson pins
 - Multi-layer progress colors
 - ERS: Pre-Drilled, Set, Final Drive
 - Tieback: Drilled, Initial Grout, Regrouted, Tested, Locked Off
@@ -27,13 +28,13 @@ v11 is not considered ready to replace production until the field workflow below
 - Full ERS inspection workflow
 - Full tieback inspection/testing workflow
 - Waler range workflow and drawing interaction
-- Drawing item overlays / tap-to-open inspection items for ERS, Tieback, Waler
+- Drawing item overlays / tap-to-open inspection items for Caisson, ERS, Tieback, Waler
 - Drawing markup with finger / Apple Pencil
 - Delete drawing/page
 - Excel import workflows
 - NCR/RFI list, import, status, attachments and engineer/fix information
 - Poured/completion controls where applicable
-- Project create/edit/delete management
+- Project edit/delete management
 - Backup Project: device + hosted choice
 - Restore Project: device + hosted choice
 - Full project PDF/report with photos
