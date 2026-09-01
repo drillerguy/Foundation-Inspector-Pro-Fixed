@@ -2,9 +2,9 @@ const PALETTE={gray:'#8b95a1',orange:'#d97706',gold:'#ca8a04',blue:'#2563eb',pur
 
 const PROGRESS={
   ERS:[
-    {id:'installed',label:'Installed',color:PALETTE.orange},
-    {id:'welded',label:'Welded / Connected',color:PALETTE.blue},
-    {id:'inspected',label:'Inspected',color:PALETTE.green}
+    {id:'preDrilled',label:'Pre-Drilled',color:PALETTE.orange},
+    {id:'set',label:'Set',color:PALETTE.blue},
+    {id:'finalDrive',label:'Final Drive',color:PALETTE.green}
   ],
   Tieback:[
     {id:'drilled',label:'Drilled',color:PALETTE.orange},
