@@ -15,6 +15,7 @@
     </div>
     <div class="header-actions">
       <select id="projectSelect" aria-label="Project"><option value="">Choose project…</option></select>
+      <button id="newProjectBtn" class="new-project" type="button">+ New Project</button>
       <span id="saveState" class="save-state">Ready</span>
     </div>
   </header>
@@ -57,7 +58,7 @@
     <aside id="panel" class="panel">
       <div class="card intro-card">
         <h2>FieldVerify Pro 11</h2>
-        <p>The app shell loads first. Inspection records, drawing files and pictures stay untouched until you explicitly select them from the dropdowns.</p>
+        <p>Create or choose a project first. Drawings, inspections and pictures belong to that project and are never bundled into the app.</p>
       </div>
     </aside>
   </main>
@@ -65,7 +66,6 @@
   <div id="modalRoot"></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="../caisson-data.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
