@@ -11,16 +11,17 @@
   <header class="topbar">
     <div>
       <div class="brand">FieldVerify Pro <span>11.0-alpha</span></div>
-      <div class="subtitle">Clean rebuild · no service worker · no background sync</div>
+      <div class="subtitle">App code and user data separated · user content loads only when selected</div>
     </div>
     <div class="header-actions">
-      <select id="projectSelect" aria-label="Project"></select>
+      <select id="projectSelect" aria-label="Project"><option value="">Choose project…</option></select>
       <span id="saveState" class="save-state">Ready</span>
     </div>
   </header>
 
   <section class="toolbar">
-    <select id="itemType" aria-label="Item type">
+    <select id="itemType" aria-label="Item type" disabled>
+      <option value="">Choose work type…</option>
       <option>Caisson</option>
       <option>ERS</option>
       <option>Tieback</option>
@@ -29,20 +30,21 @@
       <option>Column</option>
       <option>Custom</option>
     </select>
-    <select id="drawingSelect" aria-label="Drawing"></select>
-    <button id="pagesBtn" type="button">Pages</button>
-    <button id="loadDrawingBtn" type="button">Load Drawing</button>
+    <select id="drawingSelect" aria-label="Drawing" disabled><option value="">Choose drawing/page…</option></select>
+    <button id="pagesBtn" type="button" disabled>Pages</button>
+    <button id="loadDrawingBtn" type="button" disabled>Load Drawing</button>
     <input id="drawingInput" type="file" accept="application/pdf,image/*" hidden>
-    <input id="itemSearch" inputmode="text" placeholder="Item # / ID">
-    <button id="openItemBtn" type="button">Open</button>
+    <select id="itemSelect" aria-label="Inspection item" disabled><option value="">Choose inspection item…</option></select>
+    <input id="itemSearch" inputmode="text" placeholder="Item # / ID" disabled>
+    <button id="openItemBtn" type="button" disabled>Open</button>
   </section>
 
   <main class="workspace">
     <section class="drawing-pane">
-      <div id="drawingStatus" class="drawing-status">Loading drawing…</div>
+      <div id="drawingStatus" class="drawing-status">Choose a project, work type, and drawing. No drawing file is loaded yet.</div>
       <div id="mapShell" class="map-shell">
         <div id="map" class="map">
-          <img id="planImage" src="../caisson-plan.png" alt="Foundation plan">
+          <img id="planImage" alt="No drawing loaded">
           <div id="pins" class="pins"></div>
         </div>
       </div>
@@ -51,7 +53,7 @@
     <aside id="panel" class="panel">
       <div class="card intro-card">
         <h2>FieldVerify Pro 11</h2>
-        <p>This rebuild reads your existing FieldVerify project data into a separate v11 workspace. The old app remains untouched.</p>
+        <p>The app shell loads first. Inspection records, drawing files and pictures stay untouched until you explicitly select them from the dropdowns.</p>
       </div>
     </aside>
   </main>
