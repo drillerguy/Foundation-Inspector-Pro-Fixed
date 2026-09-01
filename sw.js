@@ -1,2 +1,2 @@
-/* Canonical FieldVerify Pro worker shim. Keep this file changed with each release so iOS checks the current worker exactly once. */
-importScripts('./service-worker.js?v=10.25.42');
+/* Legacy compatibility shim for the v10.25.43 service-worker retirement build. */
+importScripts('./service-worker.js?v=10.25.43');
