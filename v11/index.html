@@ -30,6 +30,7 @@
       <option>Column</option>
       <option>Custom</option>
     </select>
+    <select id="progressView" aria-label="Progress layer" disabled><option value="overall">Overall Progress</option></select>
     <select id="drawingSelect" aria-label="Drawing" disabled><option value="">Choose drawing/page…</option></select>
     <button id="pagesBtn" type="button" disabled>Pages</button>
     <button id="loadDrawingBtn" type="button" disabled>Load Drawing</button>
@@ -42,6 +43,7 @@
   <main class="workspace">
     <section class="drawing-pane">
       <div id="drawingStatus" class="drawing-status">Choose a project, work type, and drawing. No drawing file is loaded yet.</div>
+      <div id="progressLegend" class="progress-legend" aria-label="Progress color legend"></div>
       <div id="mapShell" class="map-shell">
         <div id="map" class="map">
           <img id="planImage" alt="No drawing loaded">
