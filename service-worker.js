@@ -1,6 +1,5 @@
-/* FieldVerify Pro v10.25.45 passive worker.
-   Intentionally does not cache, rewrite, inject, claim, reload, or unregister.
-   Keeping one inert registration prevents iOS from repeatedly installing/retiring workers. */
+/* FieldVerify Pro v10.25.46 passive worker.
+   Intentionally does not cache, rewrite, inject, claim, reload, or unregister. */
 self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate',()=>{});
 self.addEventListener('fetch',()=>{});
