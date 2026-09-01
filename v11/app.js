@@ -1,9 +1,9 @@
-import{projectDirectory,loadRecordIndex,loadRecord,saveRecord,getPhoto,saveAppPrefs}from'./storage.js';
+import{projectDirectory,loadRecordIndex,loadRecord,saveRecord,getPhoto,savePhoto,newId,saveAppPrefs}from'./storage.js';
 import{DrawingManager}from'./drawings.js';
 import{itemTitle,statusText,pinVisual,progressStages,progressViewOptions,stageDone,setProgressStage,progressPalette}from'./status.js';
 
 const $=id=>document.getElementById(id);
-const projectSelect=$('projectSelect'),itemType=$('itemType'),progressView=$('progressView'),drawingSelect=$('drawingSelect'),pagesBtn=$('pagesBtn'),loadDrawingBtn=$('loadDrawingBtn'),drawingInput=$('drawingInput'),itemSelect=$('itemSelect'),itemSearch=$('itemSearch'),openItemBtn=$('openItemBtn'),panel=$('panel'),pins=$('pins'),planImage=$('planImage'),saveState=$('saveState'),toastEl=$('toast'),progressLegend=$('progressLegend');
+const projectSelect=$('projectSelect'),itemType=$('itemType'),progressView=$('progressView'),drawingSelect=$('drawingSelect'),pagesBtn=$('pagesBtn'),loadDrawingBtn=$('loadDrawingBtn'),drawingInput=$('drawingInput'),cameraInput=$('cameraInput'),libraryInput=$('libraryInput'),itemSelect=$('itemSelect'),itemSearch=$('itemSearch'),openItemBtn=$('openItemBtn'),panel=$('panel'),pins=$('pins'),planImage=$('planImage'),saveState=$('saveState'),toastEl=$('toast'),progressLegend=$('progressLegend');
 let activeProjectId='',activeType='',recordIndex=[],activeItemKey='',activeRecord=null,photoUrls=[];
 
 function toast(text){toastEl.textContent=text;toastEl.classList.remove('hidden');clearTimeout(toastEl._t);toastEl._t=setTimeout(()=>toastEl.classList.add('hidden'),2600)}
@@ -16,7 +16,6 @@ function esc(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&l
 const drawings=new DrawingManager({img:planImage,statusEl:$('drawingStatus'),onChange:()=>{}});
 
 async function boot(){
-  // Deliberately light startup: project names only. No inspection records, drawing files or photos.
   const projects=await projectDirectory();
   for(const p of projects)projectSelect.appendChild(option(String(p.id),p.name||`Project ${p.id}`));
   saveState.textContent='Ready';
@@ -56,7 +55,6 @@ itemType.addEventListener('change',async()=>{
   if(!activeProjectId||!activeType){drawings.setContext(activeProjectId,activeType);return}
   saveLabel('Loading lists…');
   drawings.setContext(activeProjectId,activeType);
-  // Explicit type selection permits metadata/index reads, but no blobs or full inspections.
   const [drawingRows,index]=await Promise.all([drawings.loadMetadata(),loadRecordIndex(activeProjectId,activeType)]);
   recordIndex=index;
   for(const row of drawingRows)drawingSelect.appendChild(option(row.id,drawings.label(row)));
@@ -108,10 +106,14 @@ function progressMarkup(r){
 function showInspection(){
   const r=activeRecord;if(!r)return;
   const photos=Array.isArray(r.photos)?r.photos:[];
-  panel.innerHTML=`<div class="card"><h2>${esc(itemTitle(activeItemKey,r))}</h2><div class="kv"><b>Status</b><span>${esc(statusText(r))}</span><b>Saved status</b><span>${esc(r.status||'No information')}</span><b>Photos</b><span>${photos.length} linked</span></div>${progressMarkup(r)}<label style="display:block;font-weight:900;margin-top:12px">Notes</label><textarea id="notesField" class="field" rows="5">${esc(r.notes||'')}</textarea><div class="actions"><button id="startWorkBtn" class="good">Start Work</button><button id="completeBtn">Complete</button><button id="saveNotesBtn" class="light">Save Notes</button><button id="loadPhotosBtn" class="light">Load Photos (${photos.length})</button></div><div id="photoArea"></div></div>`;
+  const gps=(Number.isFinite(Number(r.lat))&&Number.isFinite(Number(r.lon)))?`${Number(r.lat).toFixed(6)}, ${Number(r.lon).toFixed(6)}`:'Not saved';
+  panel.innerHTML=`<div class="card"><h2>${esc(itemTitle(activeItemKey,r))}</h2><div class="kv"><b>Status</b><span>${esc(statusText(r))}</span><b>Saved status</b><span>${esc(r.status||'No information')}</span><b>GPS</b><span>${esc(gps)}</span><b>Photos</b><span>${photos.length} linked</span></div>${progressMarkup(r)}<label style="display:block;font-weight:900;margin-top:12px">Notes</label><textarea id="notesField" class="field" rows="5">${esc(r.notes||'')}</textarea><div class="actions"><button id="startWorkBtn" class="good">Start Work</button><button id="completeBtn">Complete</button><button id="saveGpsBtn">Save GPS</button><button id="takePhotoBtn">Take Photo</button><button id="addPhotosBtn" class="light">Add Photos</button><button id="loadPhotosBtn" class="light">Load Photos (${photos.length})</button><button id="saveNotesBtn" class="light">Save Notes</button></div><div id="photoArea"></div></div>`;
   $('saveNotesBtn').onclick=async()=>{r.notes=$('notesField').value;r.updated=new Date().toISOString();await persistRecord();toast('Notes saved')};
   $('startWorkBtn').onclick=async()=>{if(!r.workStartedAt)r.workStartedAt=new Date().toISOString();r.status='In Progress';r.updated=new Date().toISOString();await persistRecord();showInspection();renderPinsFromIndex();toast('Work started')};
   $('completeBtn').onclick=async()=>{r.workCompletedAt=new Date().toISOString();r.status='Complete';r.updated=new Date().toISOString();await persistRecord();showInspection();renderPinsFromIndex();toast('Marked complete')};
+  $('saveGpsBtn').onclick=saveGpsForActive;
+  $('takePhotoBtn').onclick=()=>{cameraInput.value='';cameraInput.click()};
+  $('addPhotosBtn').onclick=()=>{libraryInput.value='';libraryInput.click()};
   $('loadPhotosBtn').onclick=loadPhotos;
   panel.querySelectorAll('[data-progress-stage]').forEach(b=>b.onclick=async()=>{const id=b.dataset.progressStage,done=stageDone(r,id);setProgressStage(r,id,!done);if(!r.workStartedAt)r.workStartedAt=new Date().toISOString();r.updated=new Date().toISOString();await persistRecord();showInspection();renderPinsFromIndex();toast(`${b.textContent.trim().replace(/DONE|NOT DONE/g,'').trim()} ${done?'cleared':'complete'}`)});
 }
@@ -122,6 +124,31 @@ async function persistRecord(){
   const summary={itemKey:activeItemKey,label:String(activeRecord.itemLabel||activeItemKey),status:activeRecord.status||'No information',started:Boolean(activeRecord.workStartedAt||activeRecord.pickupTime||activeRecord.unloadTime||(activeRecord.photos||[]).length),complete:Boolean(activeRecord.workCompletedAt||activeRecord.unloadTime||activeRecord.status==='Complete'||activeRecord.status==='Completed'),photoCount:(activeRecord.photos||[]).length,progress:{...(activeRecord.progress||{})},ncrState:activeRecord.ncrState||activeRecord.inspection?.ncrState||'',lat:activeRecord.lat,lon:activeRecord.lon,category:activeType};
   if(i>=0)recordIndex[i]={...recordIndex[i],...summary};else recordIndex.push(summary);saveLabel('Saved')
 }
+
+function saveGpsForActive(){
+  if(!activeRecord)return;
+  if(!navigator.geolocation){toast('GPS is not available on this device');return}
+  saveLabel('Getting GPS…');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    activeRecord.lat=pos.coords.latitude;activeRecord.lon=pos.coords.longitude;activeRecord.gpsAccuracy=pos.coords.accuracy;activeRecord.gpsSavedAt=new Date().toISOString();activeRecord.updated=activeRecord.gpsSavedAt;
+    await persistRecord();showInspection();renderPinsFromIndex();toast(`GPS saved · ±${Math.round(pos.coords.accuracy)} ft`)
+  },err=>{saveLabel('Ready');toast(err.code===1?'Location permission denied':'GPS could not be saved')},{enableHighAccuracy:true,timeout:15000,maximumAge:0})
+}
+
+async function saveSelectedPhotos(files){
+  if(!activeRecord||!files?.length)return;
+  saveLabel('Saving photos…');
+  const ids=[...(activeRecord.photos||[])];
+  for(const file of files){
+    if(!String(file.type||'').startsWith('image/'))continue;
+    const id=newId('photo');
+    await savePhoto({id,projectId:activeProjectId,itemKey:activeItemKey,category:activeType,name:file.name||`${activeType}-${activeItemKey}`,type:file.type||'image/jpeg',blob:file,capturedAt:new Date().toISOString()});
+    ids.push(id)
+  }
+  activeRecord.photos=[...new Set(ids)];if(!activeRecord.workStartedAt)activeRecord.workStartedAt=new Date().toISOString();activeRecord.updated=new Date().toISOString();await persistRecord();showInspection();renderPinsFromIndex();toast(`${files.length} photo${files.length===1?'':'s'} saved. Tap Load Photos to view.`)
+}
+cameraInput.addEventListener('change',()=>{const files=[...(cameraInput.files||[])];cameraInput.value='';saveSelectedPhotos(files).catch(err=>{console.error(err);toast(`Photo save failed: ${err.message||err}`)})});
+libraryInput.addEventListener('change',()=>{const files=[...(libraryInput.files||[])];libraryInput.value='';saveSelectedPhotos(files).catch(err=>{console.error(err);toast(`Photo save failed: ${err.message||err}`)})});
 
 async function loadPhotos(){
   const area=$('photoArea');if(!area||!activeRecord)return;releasePhotoUrls();const ids=Array.isArray(activeRecord.photos)?activeRecord.photos:[];
