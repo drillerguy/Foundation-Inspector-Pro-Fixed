@@ -1,2 +1,2 @@
-/* Legacy compatibility shim for the v10.25.44 service-worker retirement build. */
-importScripts('./service-worker.js?v=10.25.44');
+/* Legacy compatibility shim for FieldVerify Pro v10.25.45. */
+importScripts('./service-worker.js?v=10.25.45');
