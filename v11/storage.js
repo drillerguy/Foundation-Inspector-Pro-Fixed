@@ -43,7 +43,8 @@ async function storePut(store,row){const db=await openUserDb(),tx=db.transaction
 async function storeDelete(store,id){const db=await openUserDb(),tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(id);await txDone(tx)}
 
 /* Project directory is intentionally the only user metadata read during shell startup.
-   No inspections, photos, or drawing blobs are touched here. */
+   No inspections, photos, or drawing blobs are touched here. A brand-new user sees an
+   empty project list and creates the first project explicitly. */
 export async function projectDirectory(){
   const own=await storeAll('projects');
   const legacy=json(LEGACY_PROJECTS,[]);
@@ -51,7 +52,6 @@ export async function projectDirectory(){
   const map=new Map();
   for(const p of legacyRows)if(p?.id!=null)map.set(String(p.id),{...p,id:String(p.id),source:'legacy'});
   for(const p of own)if(p?.id!=null)map.set(String(p.id),{...p,id:String(p.id),source:'v11'});
-  if(!map.size)map.set('legacy',{id:'legacy',name:'Existing Foundation Project',source:'legacy'});
   return [...map.values()];
 }
 export async function saveProject(project){return storePut('projects',{...project,id:String(project.id||newId('project')),source:'v11'})}
