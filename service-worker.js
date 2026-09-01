@@ -1,4 +1,4 @@
-/* FieldVerify Pro v10.25.48 passive worker.
+/* FieldVerify Pro v10.25.49 passive worker.
    Intentionally does not cache, rewrite, inject, claim, reload, or unregister. */
 self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate',()=>{});
