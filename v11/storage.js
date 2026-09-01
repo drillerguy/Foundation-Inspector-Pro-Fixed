@@ -18,8 +18,8 @@ const reqDone=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.
 export function appPrefs(){const x=json(APP_PREFS_KEY,{});return x&&typeof x==='object'?x:{}}
 export function saveAppPrefs(patch){const next={...appPrefs(),...patch};localStorage.setItem(APP_PREFS_KEY,JSON.stringify(next));return next}
 
-export function defaultRecord(){return{itemType:'Caisson',itemLabel:'',status:'No information',verified:false,notes:'',lat:null,lon:null,photos:[],inspection:{},history:[]}}
-export function normalizeRecord(r={}){return{...defaultRecord(),...r,photos:unique(r.photos),inspection:(r.inspection&&typeof r.inspection==='object')?r.inspection:{},history:Array.isArray(r.history)?r.history:[]}}
+export function defaultRecord(){return{itemType:'Caisson',itemLabel:'',status:'No information',verified:false,notes:'',lat:null,lon:null,photos:[],inspection:{},history:[],progress:{}}}
+export function normalizeRecord(r={}){return{...defaultRecord(),...r,photos:unique(r.photos),inspection:(r.inspection&&typeof r.inspection==='object')?r.inspection:{},history:Array.isArray(r.history)?r.history:[],progress:(r.progress&&typeof r.progress==='object')?{...r.progress}:{}}}
 export function newId(prefix='fv11'){return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2,9)}`}
 
 export function openUserDb(){return new Promise((resolve,reject)=>{
@@ -63,6 +63,10 @@ function legacyProjectRecords(projectId){
   return{};
 }
 
+function summaryFromRecord(pid,type,itemKey,raw,source){
+  const r=normalizeRecord(raw);return{itemKey:String(itemKey),projectId:pid,category:type,label:String(r.itemLabel||itemKey),status:r.status||'No information',started:Boolean(r.workStartedAt||r.pickupTime||r.unloadTime||(r.photos||[]).length),complete:Boolean(r.workCompletedAt||r.unloadTime||r.status==='Complete'||r.status==='Completed'),photoCount:(r.photos||[]).length,progress:{...r.progress},ncrState:r.ncrState||r.inspection?.ncrState||'',lat:r.lat,lon:r.lon,source}
+}
+
 /* Record INDEX is read only after the user chooses a work type.
    This returns lightweight summaries; photo blobs are never touched. */
 export async function loadRecordIndex(projectId,category){
@@ -72,9 +76,9 @@ export async function loadRecordIndex(projectId,category){
   const legacy=legacyProjectRecords(pid);
   for(const [itemKey,raw] of Object.entries(legacy||{})){
     const r=normalizeRecord(raw);if(String(r.itemType||'Caisson')!==type)continue;
-    map.set(String(itemKey),{itemKey:String(itemKey),projectId:pid,category:type,label:String(r.itemLabel||itemKey),status:r.status||'No information',started:Boolean(r.workStartedAt||r.pickupTime||r.unloadTime||(r.photos||[]).length),photoCount:(r.photos||[]).length,source:'legacy'});
+    map.set(String(itemKey),summaryFromRecord(pid,type,itemKey,r,'legacy'));
   }
-  for(const row of own){const r=normalizeRecord(row.record);map.set(String(row.itemKey),{itemKey:String(row.itemKey),projectId:pid,category:type,label:String(r.itemLabel||row.itemKey),status:r.status||'No information',started:Boolean(r.workStartedAt||r.pickupTime||r.unloadTime||(r.photos||[]).length),photoCount:(r.photos||[]).length,source:'v11'})}
+  for(const row of own){const r=normalizeRecord(row.record);map.set(String(row.itemKey),summaryFromRecord(pid,type,row.itemKey,r,'v11'))}
   return [...map.values()].sort((a,b)=>String(a.label).localeCompare(String(b.label),undefined,{numeric:true,sensitivity:'base'}));
 }
 
