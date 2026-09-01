@@ -45,9 +45,9 @@
 ## Initial progress layers
 
 ### ERS
-- Installed — orange
-- Welded / Connected — blue
-- Inspected — green
+- Pre-Drilled — orange
+- Set — blue
+- Final Drive — green
 
 ### Tieback
 - Drilled — orange
