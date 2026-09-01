@@ -1,60 +1,108 @@
-const V11_PROJECTS='fieldVerifyV11:projects';
-const V11_ACTIVE='fieldVerifyV11:activeProject';
-const V11_RECORDS=id=>`fieldVerifyV11:records:${id}`;
-const V11_DRAWINGS='fieldVerifyV11:drawingLibrary';
-const V11_ACTIVE_DRAWING='fieldVerifyV11:activeDrawing';
+/* FieldVerify Pro 11 storage architecture
+   APP STATE: tiny UI preferences only, stored in localStorage.
+   USER DATA: projects, records, drawings, photos, markup, etc. stored separately.
+   LEGACY DATA: read only on demand as a bridge; never bulk-loaded at startup.
+*/
+
+const APP_PREFS_KEY='fieldVerifyV11:appPrefs';
+const USER_DB='FieldVerifyUserDataV11';
+const USER_DB_VERSION=1;
 const LEGACY_PROJECTS='fieldVerifyProjects';
-const LEGACY_ACTIVE='fieldVerifyActiveProject';
 const LEGACY_DRAWINGS='fieldVerifyDrawingLibraryV1024';
 
 const json=(key,fallback)=>{try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch{return fallback}};
-const put=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 const unique=a=>[...new Set((a||[]).filter(Boolean).map(String))];
+const txDone=tx=>new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
+const reqDone=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+
+export function appPrefs(){const x=json(APP_PREFS_KEY,{});return x&&typeof x==='object'?x:{}}
+export function saveAppPrefs(patch){const next={...appPrefs(),...patch};localStorage.setItem(APP_PREFS_KEY,JSON.stringify(next));return next}
 
 export function defaultRecord(){return{itemType:'Caisson',itemLabel:'',status:'No information',verified:false,notes:'',lat:null,lon:null,photos:[],inspection:{},history:[]}}
+export function normalizeRecord(r={}){return{...defaultRecord(),...r,photos:unique(r.photos),inspection:(r.inspection&&typeof r.inspection==='object')?r.inspection:{},history:Array.isArray(r.history)?r.history:[]}}
+export function newId(prefix='fv11'){return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2,9)}`}
 
-function legacyRecords(projectId){
+export function openUserDb(){return new Promise((resolve,reject)=>{
+  const q=indexedDB.open(USER_DB,USER_DB_VERSION);
+  q.onupgradeneeded=()=>{
+    const db=q.result;
+    if(!db.objectStoreNames.contains('projects'))db.createObjectStore('projects',{keyPath:'id'});
+    if(!db.objectStoreNames.contains('records')){const s=db.createObjectStore('records',{keyPath:'id'});s.createIndex('projectId','projectId');s.createIndex('category','category')}
+    if(!db.objectStoreNames.contains('drawingMeta')){const s=db.createObjectStore('drawingMeta',{keyPath:'id'});s.createIndex('projectId','projectId');s.createIndex('category','category')}
+    if(!db.objectStoreNames.contains('files'))db.createObjectStore('files',{keyPath:'id'});
+    if(!db.objectStoreNames.contains('photos'))db.createObjectStore('photos',{keyPath:'id'});
+    if(!db.objectStoreNames.contains('markup'))db.createObjectStore('markup',{keyPath:'id'});
+    if(!db.objectStoreNames.contains('ncr'))db.createObjectStore('ncr',{keyPath:'id'});
+  };
+  q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);
+})}
+
+async function storeGet(store,id){const db=await openUserDb(),tx=db.transaction(store,'readonly'),v=await reqDone(tx.objectStore(store).get(id));await txDone(tx);return v||null}
+async function storeAll(store){const db=await openUserDb(),tx=db.transaction(store,'readonly'),v=await reqDone(tx.objectStore(store).getAll());await txDone(tx);return v||[]}
+async function storePut(store,row){const db=await openUserDb(),tx=db.transaction(store,'readwrite');tx.objectStore(store).put(row);await txDone(tx);return row}
+async function storeDelete(store,id){const db=await openUserDb(),tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(id);await txDone(tx)}
+
+/* Project directory is intentionally the only user metadata read during shell startup.
+   No inspections, photos, or drawing blobs are touched here. */
+export async function projectDirectory(){
+  const own=await storeAll('projects');
+  const legacy=json(LEGACY_PROJECTS,[]);
+  const legacyRows=Array.isArray(legacy)?legacy:[];
+  const map=new Map();
+  for(const p of legacyRows)if(p?.id!=null)map.set(String(p.id),{...p,id:String(p.id),source:'legacy'});
+  for(const p of own)if(p?.id!=null)map.set(String(p.id),{...p,id:String(p.id),source:'v11'});
+  if(!map.size)map.set('legacy',{id:'legacy',name:'Existing Foundation Project',source:'legacy'});
+  return [...map.values()];
+}
+export async function saveProject(project){return storePut('projects',{...project,id:String(project.id||newId('project')),source:'v11'})}
+
+function legacyProjectRecords(projectId){
   const direct=json(`fieldVerifyProjectRecords:${projectId}`,null);
   if(direct&&typeof direct==='object')return direct;
-  if(projectId==='legacy'){
-    return {...json('ordCaissonRecords',{}),...json('foundationInspectorRecords',{})};
+  if(String(projectId)==='legacy')return{...json('ordCaissonRecords',{}),...json('foundationInspectorRecords',{})};
+  return{};
+}
+
+/* Record INDEX is read only after the user chooses a work type.
+   This returns lightweight summaries; photo blobs are never touched. */
+export async function loadRecordIndex(projectId,category){
+  const pid=String(projectId),type=String(category);
+  const own=(await storeAll('records')).filter(x=>String(x.projectId)===pid&&String(x.category||x.record?.itemType||'Caisson')===type);
+  const map=new Map();
+  const legacy=legacyProjectRecords(pid);
+  for(const [itemKey,raw] of Object.entries(legacy||{})){
+    const r=normalizeRecord(raw);if(String(r.itemType||'Caisson')!==type)continue;
+    map.set(String(itemKey),{itemKey:String(itemKey),projectId:pid,category:type,label:String(r.itemLabel||itemKey),status:r.status||'No information',started:Boolean(r.workStartedAt||r.pickupTime||r.unloadTime||(r.photos||[]).length),photoCount:(r.photos||[]).length,source:'legacy'});
   }
-  return {};
+  for(const row of own){const r=normalizeRecord(row.record);map.set(String(row.itemKey),{itemKey:String(row.itemKey),projectId:pid,category:type,label:String(r.itemLabel||row.itemKey),status:r.status||'No information',started:Boolean(r.workStartedAt||r.pickupTime||r.unloadTime||(r.photos||[]).length),photoCount:(r.photos||[]).length,source:'v11'})}
+  return [...map.values()].sort((a,b)=>String(a.label).localeCompare(String(b.label),undefined,{numeric:true,sensitivity:'base'}));
 }
 
-function normalizeRecord(r={}){
-  return {...defaultRecord(),...r,photos:unique(r.photos),inspection:(r.inspection&&typeof r.inspection==='object')?r.inspection:{},history:Array.isArray(r.history)?r.history:[]};
+/* Full inspection record is read only when the user explicitly selects/opens an item. */
+export async function loadRecord(projectId,itemKey){
+  const pid=String(projectId),key=String(itemKey),id=`${pid}|${key}`;
+  const own=await storeGet('records',id);if(own?.record)return normalizeRecord(own.record);
+  const legacy=legacyProjectRecords(pid);return normalizeRecord(legacy?.[key]||{});
+}
+export async function saveRecord(projectId,itemKey,record){
+  const pid=String(projectId),key=String(itemKey),r=normalizeRecord(record);return storePut('records',{id:`${pid}|${key}`,projectId:pid,itemKey:key,category:String(r.itemType||'Caisson'),record:r,updatedAt:new Date().toISOString()})
 }
 
-export function initializeV11(){
-  let projects=json(V11_PROJECTS,null);
-  if(!Array.isArray(projects)||!projects.length){
-    const old=json(LEGACY_PROJECTS,[]);
-    projects=Array.isArray(old)&&old.length?old.map(p=>({...p})):[{id:'legacy',name:'Existing Foundation Project',created:new Date().toISOString()}];
-    put(V11_PROJECTS,projects);
-    for(const p of projects){
-      const source=legacyRecords(String(p.id));
-      const cleaned={};for(const [k,r] of Object.entries(source||{}))cleaned[k]=normalizeRecord(r);
-      put(V11_RECORDS(String(p.id)),cleaned);
-    }
-    const oldDrawings=json(LEGACY_DRAWINGS,[]);
-    if(Array.isArray(oldDrawings))put(V11_DRAWINGS,oldDrawings.map(x=>({...x,legacy:true,storageId:x.storageId||x.id})));
-  }
-  let active=localStorage.getItem(V11_ACTIVE)||localStorage.getItem(LEGACY_ACTIVE)||String(projects[0].id);
-  if(!projects.some(p=>String(p.id)===String(active)))active=String(projects[0].id);
-  localStorage.setItem(V11_ACTIVE,String(active));
-  return {projects,activeProjectId:String(active)};
+/* Drawing metadata is read only after the user chooses a work type.
+   Actual drawing files/blobs are not read until a specific drawing/page is selected. */
+export async function listDrawings(projectId,category){
+  const pid=String(projectId),type=String(category),map=new Map();
+  const legacy=json(LEGACY_DRAWINGS,[]);
+  for(const x of Array.isArray(legacy)?legacy:[]){if(String(x.projectId)!==pid||String(x.category)!==type)continue;map.set(String(x.id),{...x,id:String(x.id),storageId:x.storageId||x.id,source:'legacy'})}
+  for(const x of await storeAll('drawingMeta')){if(String(x.projectId)!==pid||String(x.category)!==type)continue;map.set(String(x.id),{...x,source:'v11'})}
+  return [...map.values()].sort((a,b)=>(Number(a.pageNumber)||0)-(Number(b.pageNumber)||0)||String(a.description||'').localeCompare(String(b.description||'')));
 }
+export async function saveDrawingMeta(row){return storePut('drawingMeta',{...row,id:String(row.id),source:'v11'})}
+export async function deleteDrawingMeta(id){return storeDelete('drawingMeta',String(id))}
+export async function saveFile(row){return storePut('files',{...row,id:String(row.id)})}
+export async function getV11File(id){return storeGet('files',String(id))}
 
-export function saveProjects(projects,activeProjectId){put(V11_PROJECTS,projects);localStorage.setItem(V11_ACTIVE,String(activeProjectId))}
-export function loadRecords(projectId){const r=json(V11_RECORDS(String(projectId)),{});const out={};for(const [k,v] of Object.entries(r||{}))out[k]=normalizeRecord(v);return out}
-export function saveRecords(projectId,records){put(V11_RECORDS(String(projectId)),records)}
-export function drawings(){const x=json(V11_DRAWINGS,[]);return Array.isArray(x)?x:[]}
-export function saveDrawings(rows){put(V11_DRAWINGS,rows)}
-export function activeDrawingMap(){const x=json(V11_ACTIVE_DRAWING,{});return x&&typeof x==='object'?x:{}}
-export function getActiveDrawing(projectId,category){return activeDrawingMap()[`${projectId}|${category}`]||''}
-export function setActiveDrawing(projectId,category,id){const x=activeDrawingMap();if(id)x[`${projectId}|${category}`]=id;else delete x[`${projectId}|${category}`];put(V11_ACTIVE_DRAWING,x)}
-
+/* Legacy IndexedDB bridge. It is opened only after a specific old drawing/photo is requested. */
 export function openLegacyDb(){return new Promise((resolve,reject)=>{
   const q=indexedDB.open('ordCaissonPhotos',3);
   q.onupgradeneeded=()=>{
@@ -65,12 +113,12 @@ export function openLegacyDb(){return new Promise((resolve,reject)=>{
   };
   q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);
 })}
+async function legacyGet(store,id){const db=await openLegacyDb(),tx=db.transaction(store,'readonly'),v=await reqDone(tx.objectStore(store).get(String(id)));await txDone(tx);return v||null}
+export async function getDrawingFile(meta){if(!meta)return null;if(meta.source==='v11')return getV11File(meta.storageId||meta.fileId);return legacyGet('settings',meta.storageId||meta.id)}
 
-const txDone=tx=>new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});
-const reqDone=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+/* Photo bytes are fetched only when the user presses Load Photos for the selected inspection. */
+export async function getPhoto(id){return (await storeGet('photos',String(id)))||(await legacyGet('photos',String(id)))}
+export async function savePhoto(row){return storePut('photos',{...row,id:String(row.id||newId('photo'))})}
 
-export async function getSetting(id){const db=await openLegacyDb(),tx=db.transaction('settings','readonly'),v=await reqDone(tx.objectStore('settings').get(id));await txDone(tx);return v||null}
-export async function putSetting(row){const db=await openLegacyDb(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').put(row);await txDone(tx)}
-export async function deleteSetting(id){const db=await openLegacyDb(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').delete(id);await txDone(tx)}
-
-export function newId(prefix='fv11'){return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2,9)}`}
+export function getActiveDrawing(projectId,category){return appPrefs().activeDrawings?.[`${projectId}|${category}`]||''}
+export function setActiveDrawing(projectId,category,id){const prefs=appPrefs(),map={...(prefs.activeDrawings||{})};if(id)map[`${projectId}|${category}`]=String(id);else delete map[`${projectId}|${category}`];saveAppPrefs({activeDrawings:map})}
