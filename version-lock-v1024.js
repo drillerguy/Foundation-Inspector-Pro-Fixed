@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.62';
+const BUILD='10.25.63';
 function apply(){const title=document.querySelector('.top .title');if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;document.title=`FieldVerify Pro v${BUILD}`;document.documentElement.setAttribute('data-fieldverify-version',BUILD);try{localStorage.setItem('fieldVerifyInstalledBuild',BUILD)}catch{}}
 function hasFile(file){return [...document.scripts].some(s=>String(s.src||'').includes('/'+file)||String(s.src||'').includes(file))}
 function loadScript(file){if(hasFile(file))return Promise.resolve();return new Promise(resolve=>{const s=document.createElement('script');s.src=`./${file}?v=${BUILD}`;s.async=false;s.dataset.fieldverifyHotfix=file;s.onload=resolve;s.onerror=()=>{console.warn('FieldVerify optional module failed: '+file);resolve()};document.body.appendChild(s)})}
@@ -20,6 +20,10 @@ async function start(){
   await loadScript('import-button-label-v102540.js');
   await loadScript('drawing-markup-v102539.js');
   await loadScript('daily-email-share-v102559.js');
+  await loadScript('cloud-auth-fix-v1025.js');
+  await loadScript('cloud-access-v1026.js');
+  await loadScript('invite-email-v1024.js');
+  await loadScript('invite-project-shortcut-v102563.js');
   apply();
 }
 function lazy(file){loadScript(file).catch(()=>{})}
