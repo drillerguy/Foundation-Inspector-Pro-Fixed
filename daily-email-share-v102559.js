@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='10.25.61-ios-light-share';
+const VERSION='10.25.62-daily-share';
 const EMAIL_KEY='fieldVerifyDailyReportEmail';
 const NOTE_KEY='fieldVerifyDailyReportNote';
 let busy=false;
@@ -16,6 +16,16 @@ function pdfText(v){return String(v??'').replace(/[—–]/g,'-').replace(/[“�
 function lines(text,max=82){const words=pdfText(text||'-').replace(/\s+/g,' ').trim().split(' '),out=[];let line='';for(const w of words){if((line+' '+w).trim().length>max&&line){out.push(line);line=w}else line=(line+' '+w).trim()}if(line)out.push(line);return out.length?out:['-']}
 function projectName(){try{return activeProject()?.name||'FieldVerify Project'}catch{return'FieldVerify Project'}}
 function safeName(v){return String(v||'Report').replace(/[^a-z0-9_-]+/gi,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')||'Report'}
+function recordHasToday(r){
+  const day=todayKey();
+  return [r?.pickupTime,r?.unloadTime,r?.updated,r?.pickupGPS?.time,r?.unloadGPS?.time].some(v=>localDay(v)===day);
+}
+function todayItems(){
+  const map=new Map();
+  try{for(const item of (typeof dailyRecords==='function'?dailyRecords():[]))map.set(String(item.n),item)}catch{}
+  try{for(const [n] of Object.entries(records||{})){const r=typeof rec==='function'?rec(+n):(records||{})[n];if(recordHasToday(r))map.set(String(n),{n:+n,r})}}catch{}
+  return [...map.values()].sort((a,b)=>Number(a.n)-Number(b.n));
+}
 
 function ensureStyles(){
   if(document.getElementById('fvDailyEmailStyle'))return;
@@ -34,7 +44,7 @@ function cardHtml(){
   const note=localStorage.getItem(NOTE_KEY)||'Attached is today’s FieldVerify inspection report with today’s inspection information and pictures.';
   return `<div class="fv-daily-email" id="fvDailyEmailBox"><h3>Email Today’s Inspection Report</h3><label for="fvDailyEmailTo">Send to</label><input id="fvDailyEmailTo" type="email" inputmode="email" autocomplete="email" multiple placeholder="name@company.com" value="${esc(saved)}"><label for="fvDailyEmailNote">Email message</label><textarea id="fvDailyEmailNote">${esc(note)}</textarea><div class="fv-email-help">Build the PDF first. When it is ready, tap <b>Share PDF Now</b>, choose Mail or Gmail, and paste the copied recipient into the To field.</div><button id="fvDailyEmailSend" type="button">BUILD EMAIL PDF</button></div>`
 }
-function install(){ensureStyles();const reportBtn=document.getElementById('dailyReportBtn');if(!reportBtn||document.getElementById('fvDailyEmailBox'))return;reportBtn.insertAdjacentHTML('afterend',cardHtml());const to=document.getElementById('fvDailyEmailTo'),note=document.getElementById('fvDailyEmailNote');to?.addEventListener('change',()=>localStorage.setItem(EMAIL_KEY,to.value.trim()));note?.addEventListener('change',()=>localStorage.setItem(NOTE_KEY,note.value))}
+function install(){ensureStyles();const reportBtn=document.getElementById('dailyReportBtn');if(!reportBtn)return;if(!document.getElementById('fvDailyEmailBox'))reportBtn.insertAdjacentHTML('afterend',cardHtml());const to=document.getElementById('fvDailyEmailTo'),note=document.getElementById('fvDailyEmailNote');if(to&&!to.dataset.fvBound){to.dataset.fvBound='1';to.addEventListener('change',()=>localStorage.setItem(EMAIL_KEY,to.value.trim()))}if(note&&!note.dataset.fvBound){note.dataset.fvBound='1';note.addEventListener('change',()=>localStorage.setItem(NOTE_KEY,note.value))}}
 
 async function photoJpeg(blob,maxDim=1100,quality=.58){
   const url=URL.createObjectURL(blob);
@@ -52,13 +62,19 @@ async function buildLightPdf(items,{daily=false,title='Field Log'}={}){
   if(!window.PDFLib)throw Error('PDF builder is not available');
   const {PDFDocument,StandardFonts,rgb}=window.PDFLib,pdf=await PDFDocument.create();
   const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  const addTextPage=(heading,r)=>{
+  const addTextPage=(heading,n,r)=>{
     let page=pdf.addPage([612,792]),y=744;
     const put=(text,size=10,strong=false)=>{for(const line of lines(text,strong?67:82)){if(y<54){page=pdf.addPage([612,792]);y=744}page.drawText(pdfText(line),{x:42,y,size,font:strong?bold:font,color:rgb(.04,.12,.2)});y-=size+5}};
-    put(title,20,true);put(projectName(),14,true);put(new Date().toLocaleString(),9);put(heading,16,true);put(`Status: ${r?.status||'No information'}`);put(`Type: ${typeof itemType==='function'?itemType(r):r?.itemType||'Inspection'}`);put(`GPS: ${Number.isFinite(Number(r?.lat))&&Number.isFinite(Number(r?.lon))?`${r.lat}, ${r.lon}`:'Not saved'}`);put(`Started: ${r?.pickupTime?new Date(r.pickupTime).toLocaleString():'-'}`);put(`Completed: ${r?.unloadTime?new Date(r.unloadTime).toLocaleString():'-'}`);put(`Inspection: ${r?.inspection?.overall||'Not set'}`);put('Notes',12,true);put(r?.notes||'No field notes');return page
+    put(title,20,true);put(projectName(),14,true);put(new Date().toLocaleString(),9);put(heading,16,true);put(`Status: ${r?.status||'No information'}`);put(`Type: ${typeof itemType==='function'?itemType(r):r?.itemType||'Inspection'}`);
+    const lat=r?.unloadGPS?.lat??r?.pickupGPS?.lat??r?.lat,lon=r?.unloadGPS?.lon??r?.pickupGPS?.lon??r?.lon;
+    put(`GPS: ${Number.isFinite(Number(lat))&&Number.isFinite(Number(lon))?`${lat}, ${lon}`:'Not saved'}`);put(`Started: ${r?.pickupTime?new Date(r.pickupTime).toLocaleString():'-'}`);put(`Completed: ${r?.unloadTime?new Date(r.unloadTime).toLocaleString():'-'}`);
+    try{put(`NCR: ${typeof ncrStateLabel==='function'?ncrStateLabel(n):'Not available'}`)}catch{}
+    const inspection=r?.inspection||{};put(`Inspection overall: ${inspection.overall||'Not set'}`);
+    try{if(typeof inspectionFields==='function')for(const [key,label] of inspectionFields(r))if(inspection[key])put(`${label}: ${inspection[key]}`)}catch{}
+    put('Notes',12,true);put(r?.notes||'No field notes');return page
   };
   for(const item of items){
-    const n=item.n,r=item.r||{},heading=typeof itemName==='function'?itemName(n,r):`Inspection ${n}`;addTextPage(heading,r);
+    const n=item.n,r=item.r||{},heading=typeof itemName==='function'?itemName(n,r):`Inspection ${n}`;addTextPage(heading,n,r);
     let photos=[];try{photos=await getPhotos(n)}catch{}
     if(daily)photos=photos.filter(p=>localDay(p?.date||p?.capturedAt)===todayKey());
     for(const p of photos){
@@ -74,7 +90,7 @@ async function buildLightPdf(items,{daily=false,title='Field Log'}={}){
 }
 
 function exposeShare(file,label,emails=[]){
-  pendingOfficeFile=file;
+  if(window.FIELDVERIFY_OFFICE_SPLIT?.setSingleFile)window.FIELDVERIFY_OFFICE_SPLIT.setSingleFile(file);else pendingOfficeFile=file;
   const ready=document.getElementById('shareReady'),text=document.getElementById('shareReadyText');
   if(text)text.textContent=`${label} is ready (${(file.size/1048576).toFixed(1)} MB).${emails.length?` Recipient copied: ${emails.join(', ')}.`:''} Tap Share PDF Now and choose Mail or Gmail.`;
   ready?.classList.remove('hidden');
@@ -86,18 +102,25 @@ async function handleFieldLog(btn){
   try{const r=typeof rec==='function'?rec(n):{},label=typeof itemName==='function'?itemName(n,r):`Inspection ${n}`,emails=savedEmails();if(emails.length)await copyText(emails.join(', '));const file=await buildLightPdf([{n,r}],{daily:false,title:`${label} Field Log`});exposeShare(file,`${label} field log`,emails);say('Field log PDF ready - tap Share PDF Now')}
   catch(err){console.warn('Field log share failed',err);say(`Field log failed: ${err.message||err}`)}finally{busy=false;btn.disabled=false;btn.textContent=old}
 }
-async function handleDaily(btn){
+async function handleDailyEmail(btn){
   if(busy)return;const to=document.getElementById('fvDailyEmailTo'),note=document.getElementById('fvDailyEmailNote'),emails=validEmailList(to?.value||'');if(!emails.length){say('Enter a valid email address first');to?.focus();return}
   localStorage.setItem(EMAIL_KEY,emails.join(', '));if(note)localStorage.setItem(NOTE_KEY,note.value);await copyText(emails.join(', '));
-  const items=typeof dailyRecords==='function'?dailyRecords().slice().sort((a,b)=>Number(a.n)-Number(b.n)):[];if(!items.length){say('No work has been recorded today');return}
+  const items=todayItems();if(!items.length){say('No work has been recorded today');return}
   busy=true;const old=btn.textContent;btn.disabled=true;btn.textContent='BUILDING TODAY’S PDF…';
   try{const file=await buildLightPdf(items,{daily:true,title:'Daily Inspection Report'});exposeShare(file,'Today’s inspection report',emails);say('Daily PDF ready - tap Share PDF Now')}
   catch(err){console.warn('Daily email/share failed',err);say(`Daily report failed: ${err.message||err}`)}finally{busy=false;btn.disabled=false;btn.textContent=old}
 }
+async function handleDailyReport(btn){
+  if(busy)return;const items=todayItems();if(!items.length){say('No work has been recorded today');return}
+  busy=true;const old=btn.textContent;btn.disabled=true;btn.textContent='BUILDING DAILY SHIFT PDF…';
+  try{const file=await buildLightPdf(items,{daily:true,title:'Daily Shift Report'});exposeShare(file,'Daily shift report');say('Daily shift PDF ready - tap Share PDF Now')}
+  catch(err){console.warn('Daily shift report failed',err);say(`Daily shift report failed: ${err.message||err}`)}finally{busy=false;btn.disabled=false;btn.textContent=old}
+}
 
 document.addEventListener('click',e=>{
   const field=e.target?.closest?.('#shareLogBtn');if(field){e.preventDefault();e.stopImmediatePropagation();handleFieldLog(field);return}
-  const daily=e.target?.closest?.('#fvDailyEmailSend');if(daily){e.preventDefault();e.stopImmediatePropagation();handleDaily(daily)}
+  const report=e.target?.closest?.('#dailyReportBtn');if(report){e.preventDefault();e.stopImmediatePropagation();handleDailyReport(report);return}
+  const email=e.target?.closest?.('#fvDailyEmailSend');if(email){e.preventDefault();e.stopImmediatePropagation();handleDailyEmail(email)}
 },true);
 
 const obs=new MutationObserver(install);obs.observe(document.documentElement,{childList:true,subtree:true});
