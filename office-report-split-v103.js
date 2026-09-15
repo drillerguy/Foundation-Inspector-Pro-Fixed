@@ -1,4 +1,4 @@
-/* FieldVerify Pro office report splitter v10.3.2
+/* FieldVerify Pro office report splitter v10.3.3
    Builds Send PDF to Office reports and automatically splits oversized reports
    into email/text-friendly numbered PDF parts.
 
@@ -8,12 +8,35 @@
 */
 (() => {
   'use strict';
-  const OFFICE_SPLIT_VERSION = '10.3.2';
+  const OFFICE_SPLIT_VERSION = '10.3.3';
   const TARGET_BYTES = 12 * 1024 * 1024;
   const HARD_BYTES = 15 * 1024 * 1024;
   let pendingOfficeFiles = [];
 
   function safeName(value){return String(value||'Project').replace(/[^a-z0-9_-]+/gi,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')||'Project'}
+  function meaningfulRecord(n,r){
+    r=r||{};
+    const status=String(r.status||'').trim();
+    const notes=String(r.notes||'').trim();
+    const condition=String(r.condition||'').trim();
+    const inspection=r.inspection&&typeof r.inspection==='object'?r.inspection:{};
+    const inspectionHasData=Object.values(inspection).some(v=>String(v??'').trim()&&String(v).trim()!=='Not set');
+    let hasNcr=false;try{hasNcr=Array.isArray(ncrsForCaisson(n))&&ncrsForCaisson(n).length>0}catch{}
+    return Boolean(
+      r.pickupTime||r.unloadTime||r.pickupGPS||r.unloadGPS||
+      (status&&status!=='No information')||notes||condition||r.verified||
+      r.lat!=null||r.lon!=null||inspectionHasData||
+      (Array.isArray(r.photos)&&r.photos.length)||hasNcr
+    );
+  }
+  function activityTime(r){
+    const values=[r?.unloadTime,r?.pickupTime,r?.updated,r?.unloadGPS?.time,r?.pickupGPS?.time];
+    let latest=0;for(const v of values){const t=Date.parse(v||'');if(Number.isFinite(t)&&t>latest)latest=t}return latest;
+  }
+  function setSinglePendingFile(file){
+    pendingOfficeFiles=file?[file]:[];
+    pendingOfficeFile=file||null;
+  }
 
   async function officeImageForPdf(blob,pdf,quality=.68,maxDimension=1300){
     const url=URL.createObjectURL(blob);
@@ -25,6 +48,7 @@
       canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
       canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
       const jpeg=await new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(Error('Photo conversion failed')),'image/jpeg',quality));
+      canvas.width=1;canvas.height=1;
       return pdf.embedJpg(await jpeg.arrayBuffer());
     }finally{URL.revokeObjectURL(url)}
   }
@@ -52,7 +76,8 @@
       if(i>0){page=pdf.addPage([612,792]);y=744}
       put(`${itemName(n,r)} - ${r.status||'No information'}`,16,true);
       put(`Type: ${itemType(r)}`);
-      put(`GPS: ${num(r.lat)!=null&&num(r.lon)!=null?`${r.lat}, ${r.lon}`:'Not saved'}`);
+      const lat=r.unloadGPS?.lat??r.pickupGPS?.lat??r.lat,lon=r.unloadGPS?.lon??r.pickupGPS?.lon??r.lon;
+      put(`GPS: ${num(lat)!=null&&num(lon)!=null?`${lat}, ${lon}`:'Not saved'}`);
       put(`Started: ${r.pickupTime?new Date(r.pickupTime).toLocaleString():'-'}`);
       put(`Completed: ${r.unloadTime?new Date(r.unloadTime).toLocaleString():'-'}`);
       put(`NCR: ${ncrStateLabel(n)}`);
@@ -144,10 +169,13 @@
   }
 
   shareOfficeReport=async function splitOfficeReport(){
-    const items=Object.entries(records).map(([n])=>({n:+n,r:rec(+n)})).sort((a,b)=>a.n-b.n);
-    if(!items.length){toast('No saved project information to send');return}
+    const items=Object.entries(records)
+      .map(([n])=>({n:+n,r:rec(+n)}))
+      .filter(({n,r})=>meaningfulRecord(n,r))
+      .sort((a,b)=>activityTime(b.r)-activityTime(a.r)||a.n-b.n);
+    if(!items.length){toast('No saved project inspection information to send');return}
     try{
-      toast('Preparing office report and photos…');
+      toast(`Preparing ${items.length} saved inspection item${items.length===1?'':'s'} and photos…`);
       pendingOfficeFiles=await buildSizedFiles(items);
       updateShareReady();
       $('shareReady').classList.remove('hidden');
@@ -157,10 +185,7 @@
 
   sharePendingOfficeFile=async function shareSplitOfficeFiles(){
     const file=pendingOfficeFiles[0]||pendingOfficeFile;
-    if(!file){toast('Build the office report first');$('shareReady').classList.add('hidden');return}
-
-    // Share exactly one real PDF File and no separate text/url payload. On iOS,
-    // this is the most reliable route to Mail retaining the generated PDF.
+    if(!file){toast('Build the report first');$('shareReady').classList.add('hidden');return}
     const payload={files:[file]};
     if(navigator.share&&(!navigator.canShare||navigator.canShare(payload))){
       try{
@@ -174,7 +199,7 @@
         }else{
           pendingOfficeFile=null;
           $('shareReady').classList.add('hidden');
-          toast('Project report shared');
+          toast('Report shared');
         }
         return;
       }catch(err){
@@ -183,7 +208,6 @@
         toast('Mail attachment share failed - saving PDF instead');
       }
     }
-
     downloadFile(file);
     if(pendingOfficeFiles.length) pendingOfficeFiles.shift();
     else pendingOfficeFile=null;
@@ -194,6 +218,6 @@
 
   const shareBtn=document.getElementById('shareNowBtn');if(shareBtn)shareBtn.onclick=sharePendingOfficeFile;
   try{bindTools()}catch{}
-  window.FIELDVERIFY_OFFICE_SPLIT={version:OFFICE_SPLIT_VERSION,targetMB:12,hardMB:15,ncrDetails:true,iosSingleFileShare:true};
-  console.info(`FieldVerify office splitter v${OFFICE_SPLIT_VERSION} loaded · iOS Mail attachment fix`);
+  window.FIELDVERIFY_OFFICE_SPLIT={version:OFFICE_SPLIT_VERSION,targetMB:12,hardMB:15,ncrDetails:true,iosSingleFileShare:true,setSingleFile:setSinglePendingFile};
+  console.info(`FieldVerify office splitter v${OFFICE_SPLIT_VERSION} loaded · filtered current-project reporting`);
 })();
