@@ -1,6 +1,6 @@
 # FieldVerify Pro Changelog
 
-This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.70 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
+This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.71 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
 
 ## Release logging rules going forward
 
@@ -16,6 +16,20 @@ For every production version:
 Recovery-only tooling should be marked **Recovery / Support** and kept separate from normal field workflow.
 
 ---
+
+## v10.25.71 — 2026-09-17
+**Recovery / Clean Master Builder**
+- Added a non-destructive **Clean Recovery Master** builder.
+- Scans all preserved local project snapshots and the shared IndexedDB photo store.
+- Separates Caisson, ERS, Tieback, Waler and other work types into type-safe identities before merging.
+- Keeps the most useful/latest non-empty status, notes, GPS, inspection data, progress and history while preserving compact source provenance.
+- Removes duplicate copies of the same image within a single item.
+- Quarantines any image hash referenced by three or more different item identities, which catches the known mass-repeated recovered-photo corruption without deleting the source photo rows.
+- Keeps two-item duplicate hashes but flags them for visual review instead of automatically discarding them.
+- Missing photo IDs are preserved in recovery metadata rather than shown as working thumbnails.
+- **Create New Clean Master Copy** writes only a brand-new local project. Existing projects, records and photo blobs remain unchanged.
+- A pre-master snapshot JSON is exported before the new local master is written.
+- The new master is intentionally local-only and is not moved to the shared cloud until verification is complete.
 
 ## v10.25.70 — 2026-09-17
 **Storage / Work-Type Isolation**
