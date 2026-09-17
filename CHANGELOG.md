@@ -1,6 +1,6 @@
 # FieldVerify Pro Changelog
 
-This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.69 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
+This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.70 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
 
 ## Release logging rules going forward
 
@@ -16,6 +16,16 @@ For every production version:
 Recovery-only tooling should be marked **Recovery / Support** and kept separate from normal field workflow.
 
 ---
+
+## v10.25.70 — 2026-09-17
+**Storage / Work-Type Isolation**
+- Added a type-safe identity namespace for ERS and Tieback selections so new work no longer reuses the same numeric record key as a Caisson with the same visible number.
+- ERS and Tieback selections now use isolated internal keys while preserving visible labels such as `E-238`.
+- Added canonical identity metadata such as `ERS:E-238`, `Tieback:E-238`, and `Caisson:238` for new records/photos.
+- Added a capture-layer patch for current ERS/Tieback drawing selection controls so future selections cannot overwrite a same-number Caisson record.
+- Photo rows created after this patch are stamped with project, work type, visible label, internal item key, and canonical item identity.
+- Corrected target naming so the saved record type controls the displayed label instead of the currently selected dropdown type.
+- This release does **not** delete or rewrite legacy/test projects and does **not** automatically migrate the existing collision records. Those remain preserved for recovery-master construction.
 
 ## v10.25.69 — 2026-09-17
 **Recovery / Support**
