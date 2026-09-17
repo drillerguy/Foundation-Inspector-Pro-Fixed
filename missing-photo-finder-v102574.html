@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FieldVerify Missing Photo Finder</title><style>body{margin:0;background:#eef2f6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.loading{max-width:720px;margin:12vh auto;padding:24px;background:#fff;border-radius:18px;text-align:center;color:#16202a}.loading b{display:block;font-size:22px;margin-bottom:8px}.bad{color:#9b1c1c}</style></head><body><div id="loading" class="loading"><b>Loading Missing Photo Finder…</b><span>Applying v10.25.74 date-safe matching rules.</span></div><script>
+(async()=>{
+'use strict';
+const fail=m=>{document.getElementById('loading').innerHTML=`<b class="bad">Missing Photo Finder could not load</b><div>${String(m||'Unknown error')}</div><div style="margin-top:12px">No project data or photos were changed.</div>`};
+try{
+ let src=await fetch('./missing-photo-finder-v102573.html?v=10.25.74',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Base missing-photo finder unavailable');return r.text()});
+ src=src.replace("const BUILD='10.25.73'","const BUILD='10.25.74'")
+        .replace('v10.25.73 · read-only metadata / GPS matching','v10.25.74 · date-safe metadata / GPS matching')
+        .replace("./recovery-master-v102573.html?v=10.25.73","./recovery-master-v102574.html?v=10.25.74");
+ const re=/function score\(fp,p\)\{.*?return\{score:s,why,timeDiff:target&&pt\?Math\.abs\(pt-target\):null,distance:bestD\}\}/s;
+ const replacement=`function score(fp,p){const parsedTimes=fp.times.map(Date.parse).filter(Number.isFinite),target=fp.idTimestampMs||(parsedTimes.length?Math.min(...parsedTimes):null),pt=Date.parse(p.takenAt||0);let s=0,why=[],timeDiff=null,timePlausible=false;if(target&&pt){timeDiff=Math.abs(pt-target);const sec=timeDiff/1000;if(sec<=10){s+=75;timePlausible=true;why.push(\`${'${sec.toFixed(0)}'} sec from expected time\`)}else if(sec<=60){s+=60;timePlausible=true;why.push(\`${'${sec.toFixed(0)}'} sec from expected time\`)}else if(sec<=300){s+=42;timePlausible=true;why.push(\`${'${(sec/60).toFixed(1)}'} min from expected time\`)}else if(sec<=3600){s+=18;timePlausible=true;why.push(\`${'${(sec/60).toFixed(0)}'} min from expected time\`)}else if(sec<=21600){s+=6;why.push(\`${'${(sec/3600).toFixed(1)}'} hr from expected time; weak time match\`)}else{why.push('photo date/time is outside the expected capture window')}}let bestD=null;for(const g of fp.gps){const d=meters(g,p);if(d!==null&&(bestD===null||d<bestD))bestD=d}if(bestD!==null){if(timePlausible){if(bestD<=10)s+=70;else if(bestD<=30)s+=55;else if(bestD<=100)s+=35;else if(bestD<=300)s+=15;why.push(\`${'${bestD.toFixed(0)}'} m from field GPS\`)}else{if(bestD<=10)s+=10;else if(bestD<=30)s+=8;else if(bestD<=100)s+=5;else if(bestD<=300)s+=2;why.push(\`${'${bestD.toFixed(0)}'} m from field GPS, but GPS alone is not enough\`)}}if(!timePlausible&&p.metadataSource!=='jpeg-exif'){s=Math.min(s,10);why.push('no trustworthy original EXIF capture time; iPhone picker may have supplied a current file date')}return{score:s,why,timeDiff,distance:bestD}}`;
+ if(!re.test(src))throw new Error('Base score function changed; safe date patch was not applied');
+ src=src.replace(re,replacement)
+        .replace('These are clues only. Confirm visually before any recovery attachment.','Strong matches now require a plausible capture-time match. GPS-only hits are shown only as weak clues and can never become a strong candidate. Confirm visually before any recovery attachment.')
+        .replace('Compared ${selectedMeta.length} photos. Review the ranked candidates. No photo has been attached.','Compared ${selectedMeta.length} photos using date-safe scoring. Review the ranked candidates. No photo has been attached.');
+ document.open();document.write(src);document.close();
+}catch(e){console.error(e);fail(e.message||e)}
+})();
+</script></body></html>
