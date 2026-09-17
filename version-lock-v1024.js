@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.69';
+const BUILD='10.25.70';
 function apply(){const title=document.querySelector('.top .title');if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;document.title=`FieldVerify Pro v${BUILD}`;document.documentElement.setAttribute('data-fieldverify-version',BUILD);try{localStorage.setItem('fieldVerifyInstalledBuild',BUILD)}catch{}}
 function hasFile(file){return [...document.scripts].some(s=>String(s.src||'').includes('/'+file)||String(s.src||'').includes(file))}
 function loadScript(file){if(hasFile(file))return Promise.resolve();return new Promise(resolve=>{const s=document.createElement('script');s.src=`./${file}?v=${BUILD}`;s.async=false;s.dataset.fieldverifyHotfix=file;s.onload=resolve;s.onerror=()=>{console.warn('FieldVerify optional module failed: '+file);resolve()};document.body.appendChild(s)})}
@@ -24,10 +24,12 @@ async function start(){
   await loadScript('drawing-manager-v1024.js');
   await loadScript('waler-mode-v102536.js');
   await loadScript('drawing-manager-waler-patch-v102537.js');
+  await loadScript('work-type-identity-v102570.js');
   await loadScript('ers-status-boxes-v102551.js');
   await loadScript('ers-pdf-loupe-v102556.js');
   await loadScript('ers-loupe-hitthrough-v102557.js');
   await loadScript('item-type-label-fix-v102532.js');
+  await loadScript('work-type-isolation-patch-v102570.js');
   await loadScript('import-button-label-v102540.js');
   await loadScript('drawing-markup-v102539.js');
   await loadScript('daily-email-share-v102559.js');
