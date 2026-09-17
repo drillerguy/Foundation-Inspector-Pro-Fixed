@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FieldVerify Clean Recovery Master</title><style>body{margin:0;background:#eef2f6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.loading{max-width:720px;margin:12vh auto;padding:24px;background:#fff;border-radius:18px;text-align:center;color:#16202a}.bad{color:#9b1c1c}</style></head><body><div id="loading" class="loading"><b>Loading Clean Recovery Master…</b><span>Applying v10.25.74 recovery tools.</span></div><script>
+(async()=>{
+'use strict';
+const fail=m=>{document.getElementById('loading').innerHTML=`<b class="bad">Recovery Master could not load</b><div>${String(m||'Unknown error')}</div><div style="margin-top:12px">No project data was changed.</div>`};
+try{
+ let src=await fetch('./recovery-master-v102573.html?v=10.25.74',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Base recovery tool unavailable');return r.text()});
+ src=src.replaceAll('10.25.73','10.25.74')
+        .replaceAll('missing-photo-finder-v102573.html','missing-photo-finder-v102574.html')
+        .replace('Applying v10.25.73 recovery and missing-photo tools.','Applying v10.25.74 recovery and date-safe missing-photo tools.');
+ document.open();document.write(src);document.close();
+}catch(e){console.error(e);fail(e.message||e)}
+})();
+</script></body></html>
