@@ -1,6 +1,6 @@
 # FieldVerify Pro Changelog
 
-This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.71 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
+This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.72 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
 
 ## Release logging rules going forward
 
@@ -16,6 +16,14 @@ For every production version:
 Recovery-only tooling should be marked **Recovery / Support** and kept separate from normal field workflow.
 
 ---
+
+## v10.25.72 — 2026-09-17
+**Recovery / Status Rollback Protection**
+- Reviewed the exported v10.25.71 Clean Master Preview before allowing master creation.
+- Found that some older snapshots proved a Caisson was `Completed`, while later restore-era snapshots carried a lower status such as `Verified GPS`, `Picked up`, or `Work started`.
+- Changed recovery status selection to preserve the furthest proven work stage first, using timestamp only to break ties within the same stage.
+- This prevents recovery from rolling a completed record backward merely because a restored snapshot has a newer timestamp.
+- Existing source projects remain untouched; the user must rebuild the preview before creating the clean master.
 
 ## v10.25.71 — 2026-09-17
 **Recovery / Clean Master Builder**
