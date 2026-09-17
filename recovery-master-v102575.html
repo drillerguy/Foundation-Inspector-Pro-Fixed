@@ -1,0 +1,92 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FieldVerify Clean Recovery Master</title><style>body{margin:0;background:#eef2f6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.loading{max-width:720px;margin:12vh auto;padding:24px;background:#fff;border-radius:18px;text-align:center;color:#16202a}.loading b{display:block;font-size:22px;margin-bottom:8px}.bad{color:#9b1c1c}</style></head><body><div id="loading" class="loading"><b>Loading Clean Recovery Master…</b><span>Applying v10.25.75 master-creation safety fix.</span></div><script>
+(async()=>{
+'use strict';
+const fail=m=>{document.getElementById('loading').innerHTML=`<b class="bad">Recovery Master could not load</b><div>${String(m||'Unknown error')}</div><div style="margin-top:12px">No source project data or photos were changed.</div>`};
+try{
+ let src=await fetch('./recovery-master-v102571.html?v=10.25.75',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Base recovery tool unavailable');return r.text()});
+ const oldBuild="const BUILD='10.25.71'";
+ const oldLatest="function latestWith(cands,pred){return [...cands].filter(x=>pred(x.r)).sort((a,b)=>ts(b.r?.updated)-ts(a.r?.updated))[0]||null}function distinctVals";
+ const newLatest="function statusRank(s){const x=String(s||'').trim().toLowerCase();if(!meaningfulStatus(x))return 0;if(x==='completed'||x==='complete'||x.includes('completed work')||x.includes('final driven')||x.includes('tested'))return 100;if(x==='unloaded')return 90;if(x==='picked up'||x==='work started'||x==='started')return 70;if(x==='verified gps')return 50;return 60}function bestStatus(cands){return [...cands].filter(x=>meaningfulStatus(x.r?.status)).sort((a,b)=>statusRank(b.r?.status)-statusRank(a.r?.status)||ts(b.r?.updated)-ts(a.r?.updated))[0]||null}function latestWith(cands,pred){return [...cands].filter(x=>pred(x.r)).sort((a,b)=>ts(b.r?.updated)-ts(a.r?.updated))[0]||null}function distinctVals";
+ const oldPick="const latestStatus=latestWith(cands,x=>meaningfulStatus(x.status));";
+ const newPick="const latestStatus=bestStatus(cands);";
+ if(!src.includes(oldBuild)||!src.includes(oldLatest)||!src.includes(oldPick))throw new Error('Recovery base changed; safe recovery patch was not applied');
+ src=src.replace(oldBuild,"const BUILD='10.25.75'")
+        .replace('v10.25.71 · non-destructive master builder','v10.25.75 · non-destructive master builder')
+        .replace(oldLatest,newLatest)
+        .replace(oldPick,newPick)
+        .replace("recovery-audit-v102569.html?v=10.25.71","recovery-audit-v102569.html?v=10.25.75")
+        .replace('<button id="export" class="gray">EXPORT MASTER PREVIEW</button>','<button id="export" class="gray">EXPORT MASTER PREVIEW</button><button class="blue" onclick="location.href=\'./missing-photo-finder-v102574.html?v=10.25.75\'">FIND MISSING PHOTOS</button>')
+        .replace('Preview complete. No source data was changed. Review the totals, then create a new clean master copy when ready.','Preview complete. No source data was changed. Status recovery keeps the furthest proven work stage. You can also run FIND MISSING PHOTOS before creating the clean master.')
+        .replace('The preview separates work types, quarantines mass-repeated photo corruption, keeps missing-photo evidence, and flags uncertain records for review.','The preview separates work types, quarantines mass-repeated photo corruption, keeps missing-photo evidence, protects completed statuses from restore rollbacks, and flags uncertain records for review.');
+ const patch=`<script>
+(function(){
+ 'use strict';
+ function compactMasterRecords(input){
+  const out={};
+  for(const [k,original] of Object.entries(input||{})){
+   const r={...(original||{})};
+   const sources=Array.isArray(r.recoverySources)?r.recoverySources:[];
+   delete r.recoverySources;
+   if(sources.length)r.recoverySourceCount=sources.length;
+   out[k]=r;
+  }
+  return out;
+ }
+ function validRecordCount(id){
+  try{const x=JSON.parse(localStorage.getItem('fieldVerifyProjectRecords:'+id)||'null');return x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).length:0}catch{return 0}
+ }
+ function latestIncompleteRecovery(list){
+  return [...(Array.isArray(list)?list:[])].filter(p=>p&&p.recoveryMaster&&p.id&&!validRecordCount(String(p.id))).sort((a,b)=>Date.parse(b.created||0)-Date.parse(a.created||0))[0]||null;
+ }
+ function showExistingMaster(){
+  const list=readJson(PROJECTS_KEY,[]);
+  const good=[...(Array.isArray(list)?list:[])].filter(p=>p&&p.recoveryMaster&&p.id&&validRecordCount(String(p.id))>0).sort((a,b)=>Date.parse(b.created||0)-Date.parse(a.created||0));
+  if(!good.length)return;
+  createdMasterId=String(good[0].id);
+  const openBtn=$('open');if(openBtn)openBtn.classList.remove('hidden');
+ }
+ function storageMessage(e){
+  const raw=String((e&&e.message)||e||'Unknown storage error');
+  if((e&&e.name==='QuotaExceededError')||/quota|storage full|exceeded/i.test(raw))return 'The snapshot downloaded, but Safari did not have enough LOCAL STORAGE space to write the clean master. Nothing was deleted or overwritten. The master was not activated. Keep the downloaded snapshot and do not delete any old projects.';
+  return 'The snapshot downloaded, but master creation stopped before verification: '+raw+'. Nothing was deleted or overwritten.';
+ }
+ function safeCreateMaster(){
+  if(!previewData)return setStatus('Build the preview first.');
+  if(!confirm('Create a NEW local Recovery Master copy? Existing projects and photos will not be changed or deleted.'))return;
+  const btn=$('create');if(btn){btn.disabled=true;btn.textContent='CREATING CLEAN MASTER…'}
+  try{
+   const now=new Date().toISOString(),srcMeta=sourceMeta(),projects=readJson(PROJECTS_KEY,[]),list=Array.isArray(projects)?projects:[];
+   const incomplete=latestIncompleteRecovery(list),id=incomplete?String(incomplete.id):('recovery-master-'+Date.now());
+   const snapshot={type:'fieldverify-pre-master-snapshot',build:BUILD,created:now,sourceProjects:previewData.sourceProjects,sourceRecords:Object.fromEntries(discover().map(p=>[p.id,recordsFor(p.id)])),sourceNcr:Object.fromEntries(discover().map(p=>[p.id,readJson(ncrKey(p.id),[])])),masterPreview:previewData};
+   download(snapshot,'FieldVerify-Pre-Master-Snapshot-'+new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)+'.json');
+   setStatus('Pre-Master Snapshot downloaded. Creating and verifying the clean master locally…');
+   const operational=compactMasterRecords(previewData.masterRecords),expected=Object.keys(operational).length;
+   const masterProject={...(incomplete||{}),id,name:'Recovery Master — VERIFY BEFORE USE',number:srcMeta.number||'',address:srcMeta.address||'',client:srcMeta.client||'',drawingRevision:srcMeta.drawingRevision||'',created:incomplete?.created||now,recoveryMaster:true,recoveryBuild:BUILD,recoverySourceProjectCount:previewData.sourceProjectCount};
+   localStorage.setItem('fieldVerifyProjectRecords:'+id,JSON.stringify(operational));
+   if(validRecordCount(id)!==expected)throw new Error('record read-back verification failed');
+   localStorage.setItem('fieldVerifyProjectNcr:'+id,JSON.stringify(previewData.masterNcrRows||[]));
+   localStorage.setItem('fieldVerifyRecoveryMasterMeta:'+id,JSON.stringify({created:now,build:BUILD,summary:previewData.summary,sourceProjects:previewData.sourceProjects,suspiciousHashes:previewData.suspiciousHashes,fullRecoveryEvidence:'preserved in downloaded Pre-Master Snapshot',operationalRecordCount:expected}));
+   const next=list.filter(p=>String(p?.id||'')!==id);next.push(masterProject);
+   localStorage.setItem(PROJECTS_KEY,JSON.stringify(next));
+   const checkList=readJson(PROJECTS_KEY,[]);if(!Array.isArray(checkList)||!checkList.some(p=>String(p?.id||'')===id))throw new Error('project-list read-back verification failed');
+   localStorage.setItem(ACTIVE_KEY,id);
+   createdMasterId=id;
+   const openBtn=$('open');if(openBtn)openBtn.classList.remove('hidden');
+   setStatus('Clean Recovery Master created and verified with '+expected+' records. Opening it now…');
+   setTimeout(()=>{location.href='./?recoveryMaster='+encodeURIComponent(id)},900);
+  }catch(e){
+   console.error('Safe master creation failed',e);
+   setStatus(storageMessage(e));
+   if(btn){btn.disabled=false;btn.textContent='CREATE NEW CLEAN MASTER COPY'}
+  }
+ }
+ const createBtn=$('create');if(createBtn)createBtn.onclick=safeCreateMaster;
+ const openBtn=$('open');if(openBtn)openBtn.onclick=()=>{if(!createdMasterId)return;localStorage.setItem(ACTIVE_KEY,createdMasterId);location.href='./?recoveryMaster='+encodeURIComponent(createdMasterId)};
+ showExistingMaster();
+})();
+<\/script>`;
+ src=src.replace('</body>',patch+'</body>');
+ document.open();document.write(src);document.close();
+}catch(e){console.error(e);fail(e.message||e)}
+})();
+</script></body></html>
