@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.24-backup-choice-1';
+const VERSION='10.25.83-backup-choice';
 function say(s){try{toast(s)}catch{}}
 function esc(s){return String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 function projectName(){try{return activeProject()?.name||'FieldVerify Project'}catch{return'FieldVerify Project'}}
@@ -16,8 +16,15 @@ function modal(title,body){
  d.innerHTML=`<div style="max-width:520px;margin:8vh auto;background:#fff;color:#16202a;border-radius:18px;padding:18px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2 style="margin:0">${esc(title)}</h2><button id="fvChoiceClose" style="padding:10px">Close</button></div><div style="margin-top:14px">${body}</div></div>`;
  document.body.appendChild(d);d.querySelector('#fvChoiceClose').onclick=()=>d.remove();return d;
 }
+function isRecoveryMaster(){try{return !!activeProject()?.recoveryMaster}catch{return false}}
 function choiceButtons(kind){
  const isBackup=kind==='backup';
+ if(isBackup&&isRecoveryMaster()){
+  const c=window.FIELDVERIFY_CLEAN_ARCHIVE;
+  if(!c||typeof c.save!=='function')return say('Clean Recovery Master backup is still loading. Try again in a moment.');
+  c.save();
+  return;
+ }
  const d=modal(isBackup?'Backup Project':'Restore Project',`
   <p style="margin:0 0 12px;color:#596775">Choose where you want to ${isBackup?'save the backup':'restore the project from'}.</p>
   <button id="fvChoiceHosting" style="display:block;width:100%;padding:16px;margin:8px 0;background:#083a73;color:#fff;border-radius:12px;font-size:17px;font-weight:900">${isBackup?'BACKUP TO HOSTING':'RESTORE FROM HOSTING'}</button>
