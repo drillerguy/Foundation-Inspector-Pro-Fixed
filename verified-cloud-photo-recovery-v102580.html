@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FieldVerify Verified Cloud Recovery</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16202a;background:#eef2f6}
+*{box-sizing:border-box}body{margin:0;padding:16px}.wrap{max-width:780px;margin:auto}
+.top{background:#083a73;color:#fff;padding:16px;border-radius:16px}.top h1{margin:0 0 4px;font-size:24px}
+.card{background:#fff;border:1px solid #d7dee7;border-radius:16px;padding:14px;margin:12px 0}
+.ok{background:#e7f7ec;border-color:#a9d6b5}.warn{background:#fff4cc;border-color:#e5c04b}.bad{background:#fdecec;border-color:#e3abab}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:25px;color:#083a73}
+button{width:100%;padding:15px;margin:8px 0;border:0;border-radius:12px;font-size:17px;font-weight:900}
+.blue{background:#083a73;color:#fff}.green{background:#16803d;color:#fff}.gray{background:#e7edf4;color:#16202a}.orange{background:#c56a00;color:#fff}
+.small{font-size:12px;color:#66717c;line-height:1.45}.status{white-space:pre-wrap;line-height:1.45}
+.row{background:#eef3f8;padding:10px;border-radius:10px;margin:7px 0}.row b{display:block}
+@media(max-width:520px){.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>Verified Cloud Photo Recovery</h1><div>v10.25.80 · exact-ID recovery only</div></div>
+  <div class="card warn"><b>Safety rules</b><div class="small">
+    This tool only restores a cloud image when the active Recovery Master already contains that exact photo ID
+    as a missing reference or linked photo, the August 28 hosted backup ties that same ID to the same caisson,
+    and the exact cloud file still exists. The known 54-file repeated-image corruption group is blocked.
+    Existing records and working photos are not overwritten.
+  </div></div>
+  <div id="project" class="card">Checking active Recovery Master…</div>
+  <div class="card">
+    <button id="scan" class="blue">SCAN VERIFIED CLOUD PHOTOS</button>
+    <button id="restore" class="green" disabled>RESTORE VERIFIED MATCHES</button>
+    <button id="openApp" class="gray">OPEN FIELDVERIFY</button>
+  </div>
+  <div id="summary"></div>
+  <div id="results"></div>
+  <div id="status" class="card status small">Ready.</div>
+</div>
+<script type="module">
+'use strict';
+const BUILD='10.25.80';
+const SOURCE_PROJECT='35729c4e-24cd-426c-812f-1cb8e56ce49a';
+const SOURCE_BACKUP='05e8428e-fb74-491d-95a9-38bc5ac2adc5';
+const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
+const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
+const BAD_ETAG='44d4ccb44cb36a9d1c9d6cedb40c607d';
+const BAD_NAME='61e6373f039e';
+const PROJECTS_KEY='fieldVerifyProjects',ACTIVE_KEY='fieldVerifyActiveProject';
+const $=id=>document.getElementById(id);
+const uniq=a=>[...new Set((a||[]).filter(v=>v!==null&&v!==undefined&&v!=='').map(String))];
+let master=null,sb=null,scanResult=null;
+
+function read(k,f){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?f:v}catch{return f}}
+function activeInfo(){
+  const id=localStorage.getItem(ACTIVE_KEY)||'',ps=read(PROJECTS_KEY,[]);
+  const p=(Array.isArray(ps)?ps:[]).find(x=>String(x&&x.id||'')===id);
+  return{id,p};
+}
+function recordsKey(id){return 'fieldVerifyProjectRecords:'+id}
+function getRecords(id){const v=read(recordsKey(id),{});return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}
+function setRecords(id,v){localStorage.setItem(recordsKey(id),JSON.stringify(v))}
+function status(s){$('status').textContent=s}
+function normalizeEtag(v){return String(v||'').replace(/["\\]/g,'').toLowerCase()}
+function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',3);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function req(q){return new Promise((res,rej)=>{q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function done(tx){return new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)})}
+async function localIds(){const db=await openDB(),tx=db.transaction('photos','readonly'),s=tx.objectStore('photos');let keys=[];if(s.getAllKeys)keys=await req(s.getAllKeys());else{const rows=await req(s.getAll());keys=(rows||[]).map(x=>x&&x.id)}await done(tx);return new Set((keys||[]).filter(Boolean).map(String))}
+async function getPhoto(id){const db=await openDB(),tx=db.transaction('photos','readonly'),v=await req(tx.objectStore('photos').get(String(id)));await done(tx);return v}
+async function putPhoto(row){const db=await openDB(),tx=db.transaction('photos','readwrite'),s=tx.objectStore('photos');const old=await req(s.get(String(row.id)));if(old&&old.blob&&old.blob.size){await done(tx);return false}s.put(row);await done(tx);const v=await getPhoto(row.id);if(!v||!v.blob||!v.blob.size)throw Error('Photo write verification failed for '+row.id);return true}
+function numberFor(k,r){
+  const m=String(r&&r.canonicalItemKey||'').match(/Caisson:(\d+)/i);if(m)return m[1];
+  const n=String(r&&r.sourceNumber||r&&r.item_label||r&&r.itemLabel||k||'').match(/\d+/);return n?n[0]:String(k);
+}
+function removeMissing(r,id){
+  r.recoveryMissingPhotoRefs=(Array.isArray(r.recoveryMissingPhotoRefs)?r.recoveryMissingPhotoRefs:[]).filter(x=>String(x)!==String(id));
+  r.recoveryReviewReasons=(Array.isArray(r.recoveryReviewReasons)?r.recoveryReviewReasons:[]).filter(x=>!/^\d+ missing photo reference/.test(String(x)));
+  if(r.recoveryMissingPhotoRefs.length)r.recoveryReviewReasons.unshift(r.recoveryMissingPhotoRefs.length+' missing photo reference(s)');
+  r.recoveryNeedsReview=r.recoveryReviewReasons.length>0;
+}
+function ensureMaster(){
+  const a=activeInfo();
+  if(!a.id||!a.p||!a.p.recoveryMaster){
+    $('project').className='card bad';
+    $('project').innerHTML='<b>Open the Recovery Master first.</b><div class="small">This recovery tool will not run against a normal project or source project.</div>';
+    $('scan').disabled=true;return null;
+  }
+  $('project').className='card ok';
+  $('project').innerHTML='<b>'+String(a.p.name||'Recovery Master')+'</b><div class="small">Active master ID: '+a.id+'<br>Source projects remain untouched.</div>';
+  return a;
+}
+async function client(){
+  if(sb)return sb;
+  const mod=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  sb=mod.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  const ses=(await sb.auth.getSession()).data.session;
+  if(!ses)throw Error('FieldVerify Cloud is not signed in on this device. Open FieldVerify > Cloud, sign in, then return here.');
+  return sb;
+}
+function backupPhotoMap(records){
+  const out=new Map();
+  for(const [key,r] of Object.entries(records||{})){
+    for(const id of Array.isArray(r&&r.photos)?r.photos:[])out.set(String(id),String(key));
+  }
+  return out;
+}
+async function scan(){
+  if(!master)return;
+  $('scan').disabled=true;$('restore').disabled=true;scanResult=null;
+  try{
+    status('Reading Recovery Master and verified August 28 hosted backup…');
+    const c=await client();
+    const b=await c.from('fieldverify_project_backups').select('snapshot,created_at').eq('id',SOURCE_BACKUP).maybeSingle();
+    if(b.error)throw b.error;
+    const sourceRecords=b.data&&b.data.snapshot&&b.data.snapshot.records;
+    if(!sourceRecords||typeof sourceRecords!=='object')throw Error('Verified August 28 backup could not be read.');
+    const sourceMap=backupPhotoMap(sourceRecords);
+    const rs=getRecords(master.id),have=await localIds(),targets=new Map();
+    for(const [key,r] of Object.entries(rs)){
+      const ids=uniq([...(Array.isArray(r&&r.photos)?r.photos:[]),...(Array.isArray(r&&r.recoveryMissingPhotoRefs)?r.recoveryMissingPhotoRefs:[])]);
+      for(const id of ids)if(!have.has(id)){
+        if(!targets.has(id))targets.set(id,{id,masterKey:key,record:r,item:numberFor(key,r),missingEvidence:(r.recoveryMissingPhotoRefs||[]).map(String).includes(id),linked:(r.photos||[]).map(String).includes(id)});
+      }
+    }
+    const candidates=[],blocked=[],notFound=[],folders=new Map();
+    let n=0;
+    for(const t of targets.values()){
+      n++;status('Checking exact cloud files… '+n+' of '+targets.size);
+      const oldKey=sourceMap.get(t.id);
+      if(!oldKey){notFound.push({...t,reason:'Exact photo ID is not in verified Aug 28 backup'});continue}
+      const oldItem=numberFor(oldKey,sourceRecords[oldKey]||{});
+      if(String(oldItem)!==String(t.item)){notFound.push({...t,reason:'Backup caisson does not match Recovery Master caisson'});continue}
+      let list=folders.get(String(oldItem));
+      if(!list){
+        const q=await c.storage.from('fieldverify').list(SOURCE_PROJECT+'/'+oldItem,{limit:100,sortBy:{column:'name',order:'asc'}});
+        if(q.error)throw q.error;list=q.data||[];folders.set(String(oldItem),list);
+      }
+      const f=list.find(x=>String(x&&x.name||'').replace(/\.[^.]+$/,'')===t.id);
+      if(!f){notFound.push({...t,reason:'Exact cloud file is no longer in storage'});continue}
+      const et=normalizeEtag(f.metadata&&f.metadata.eTag);
+      if(et===BAD_ETAG||String(f.name||'').includes(BAD_NAME)){
+        blocked.push({...t,file:f.name,reason:'Known repeated-image corruption group'});
+        continue;
+      }
+      const bytes=Number(f.metadata&&f.metadata.size||0);
+      if(bytes<=0){blocked.push({...t,file:f.name,reason:'Cloud file has zero/unknown bytes'});continue}
+      candidates.push({...t,oldKey:String(oldKey),file:f.name,storagePath:SOURCE_PROJECT+'/'+oldItem+'/'+f.name,bytes,etag:et});
+    }
+    scanResult={records:rs,candidates,blocked,notFound,totalTargets:targets.size,alreadyLocal:0};
+    $('summary').innerHTML='<div class="card"><div class="grid">'+
+      '<div class="metric"><b>'+targets.size+'</b><span>missing blobs checked</span></div>'+
+      '<div class="metric"><b>'+candidates.length+'</b><span>verified cloud matches</span></div>'+
+      '<div class="metric"><b>'+blocked.length+'</b><span>unsafe files blocked</span></div>'+
+      '<div class="metric"><b>'+notFound.length+'</b><span>not in cloud</span></div>'+
+      '</div></div>';
+    $('results').innerHTML='<div class="card"><h2>Verified matches</h2>'+
+      (candidates.length?candidates.map(x=>'<div class="row"><b>Caisson '+x.item+'</b><div class="small">'+x.id+'<br>'+Math.round(x.bytes/1024)+' KB · exact backup ID + exact cloud path</div></div>').join(''):'<div class="small">No additional exact cloud matches need to be restored.</div>')+
+      (blocked.length?'<h3>Blocked corruption</h3>'+blocked.slice(0,20).map(x=>'<div class="row"><b>Caisson '+x.item+'</b><div class="small">'+x.id+'<br>'+x.reason+'</div></div>').join(''):'')+
+      '</div>';
+    $('restore').disabled=!candidates.length;
+    $('restore').textContent=candidates.length?'RESTORE '+candidates.length+' VERIFIED MATCH'+(candidates.length===1?'':'ES'):'NO VERIFIED MATCHES TO RESTORE';
+    status(candidates.length?'Scan complete. Only exact, non-corrupt matches are enabled for recovery. Nothing has been changed yet.':'Scan complete. There are no additional safe exact cloud photos to restore. Your current Recovery Master already contains every surviving exact cloud photo that passes the corruption filter.');
+  }catch(e){console.error(e);status('Scan stopped: '+(e&&e.message||e));$('scan').disabled=false}
+}
+async function restore(){
+  if(!master||!scanResult||!scanResult.candidates.length)return;
+  const c=await client(),rs=getRecords(master.id),stamp=new Date().toISOString();
+  const before={created:stamp,masterId:master.id,records:{}};
+  for(const x of scanResult.candidates)before.records[x.masterKey]=rs[x.masterKey]||null;
+  try{localStorage.setItem('fieldVerifyVerifiedCloudRecoveryBackup:'+master.id+':'+Date.now(),JSON.stringify(before))}catch{}
+  $('restore').disabled=true;$('scan').disabled=true;
+  let saved=0,failed=0;
+  for(let i=0;i<scanResult.candidates.length;i++){
+    const x=scanResult.candidates[i];status('Restoring verified cloud photo '+(i+1)+' of '+scanResult.candidates.length+'…\nCaisson '+x.item);
+    try{
+      const dl=await c.storage.from('fieldverify').download(x.storagePath);
+      if(dl.error)throw dl.error;
+      if(!dl.data||!dl.data.size)throw Error('Downloaded zero bytes');
+      await putPhoto({id:x.id,caisson:Number(x.item)||x.item,number:Number(x.item)||x.item,item_key:String(x.item),itemType:'Caisson',canonicalItemKey:'Caisson:'+x.item,projectId:master.id,name:x.file,type:dl.data.type||'image/jpeg',blob:dl.data,date:new Date().toISOString(),recoverySource:'verified-cloud-exact-id-v10.25.80',sourceProjectId:SOURCE_PROJECT,sourceStoragePath:x.storagePath});
+      const r={...(rs[x.masterKey]||{})};r.photos=uniq([...(Array.isArray(r.photos)?r.photos:[]),x.id]);removeMissing(r,x.id);
+      r.recoveryRecoveredPhotoEvidence=[...(Array.isArray(r.recoveryRecoveredPhotoEvidence)?r.recoveryRecoveredPhotoEvidence:[]),{id:x.id,source:'verified Aug 28 backup + exact cloud path',confidence:1,recoveredAt:new Date().toISOString(),build:BUILD}];
+      rs[x.masterKey]=r;saved++;
+    }catch(e){console.error('restore failed',x,e);failed++}
+  }
+  setRecords(master.id,rs);
+  const verify=await localIds(),verified=scanResult.candidates.filter(x=>verify.has(x.id)).length;
+  $('summary').innerHTML='<div class="card ok"><b>Verified cloud recovery complete</b><div class="grid" style="margin-top:10px">'+
+    '<div class="metric"><b>'+saved+'</b><span>restored</span></div>'+
+    '<div class="metric"><b>'+verified+'</b><span>verified on device</span></div>'+
+    '<div class="metric"><b>'+scanResult.blocked.length+'</b><span>bad repeats kept out</span></div>'+
+    '<div class="metric"><b>'+failed+'</b><span>failed</span></div>'+
+    '</div><div class="small" style="margin-top:10px">No existing working photo or source project record was overwritten.</div></div>';
+  status('Recovery finished. Tap OPEN FIELDVERIFY and use the Recovery Master project. '+(failed?'Some verified downloads failed; you can run this tool again later.':'All available exact matches passed verification.'));
+  $('restore').textContent='RECOVERY COMPLETE';
+  $('openApp').className='green';
+}
+master=ensureMaster();
+$('scan').onclick=scan;
+$('restore').onclick=restore;
+$('openApp').onclick=()=>location.href='./?v=10.25.80';
+</script>
+</body>
+</html>
