@@ -17,6 +17,12 @@ Recovery-only tooling should be marked **Recovery / Support** and kept separate 
 
 ---
 
+## v10.25.78 — 2026-09-17
+**Recovery / Donor Sweep Launcher Fix**
+- Fixed the Recovery Master page failing to load when adding the Final Donor Photo Sweep button.
+- v10.25.78 injects the recovery buttons directly into the stable v10.25.75 Recovery Master base instead of trying to patch the already-generated v10.25.76 launcher.
+- No source project records or photo blobs are changed by this fix.
+
 ## v10.25.77 — 2026-09-17
 **Recovery / Final Donor Photo Sweep**
 - Added a read-only **Final Donor Photo Sweep** for the verified Recovery Master.
