@@ -17,6 +17,14 @@ Recovery-only tooling should be marked **Recovery / Support** and kept separate 
 
 ---
 
+## v10.25.77 — 2026-09-17
+**Recovery / Final Donor Photo Sweep**
+- Added a read-only **Final Donor Photo Sweep** for the verified Recovery Master.
+- Compares every remaining missing-photo evidence ID against surviving local photo blobs and preserved old-project references.
+- Uses work-type-safe canonical identities, item number/type, photo-row metadata, GPS/time as supporting evidence, and existing source-project links.
+- Excludes mass-repeated image hashes and same-image duplicates already present in the master from strong donor matches.
+- Does not attach, move, replace, rename, or delete any photo. Candidate attachment remains a separate explicit recovery decision.
+
 ## v10.25.72 — 2026-09-17
 **Recovery / Status Rollback Protection**
 - Reviewed the exported v10.25.71 Clean Master Preview before allowing master creation.
