@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FieldVerify Recovery Center</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16202a;background:#eef2f6}
+*{box-sizing:border-box}body{margin:0;padding:16px}.wrap{max-width:760px;margin:auto}
+.top{background:#083a73;color:#fff;padding:16px;border-radius:16px}.top h1{margin:0 0 4px;font-size:24px}
+.card{background:#fff;border:1px solid #d7dee7;border-radius:16px;padding:14px;margin:12px 0}
+.notice{background:#fff4cc;border:1px solid #e5c04b;border-radius:12px;padding:12px}
+button{width:100%;padding:15px;margin:7px 0;border:0;border-radius:12px;font-weight:900;font-size:17px}
+.blue{background:#083a73;color:#fff}.green{background:#16803d;color:#fff}.orange{background:#c56a00;color:#fff}.purple{background:#7b3fc6;color:#fff}.gray{background:#e7edf4;color:#16202a}
+.small{font-size:12px;color:#66717c;line-height:1.45}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>FieldVerify Data Recovery</h1><div>v10.25.79 · safe recovery launcher</div></div>
+  <div class="notice"><b>Safety:</b> opening these tools does not delete or clear Safari data. The donor sweep is read-only.</div>
+  <div id="project" class="card">Checking active project…</div>
+  <div class="card">
+    <button class="orange" onclick="location.href='./final-donor-photo-sweep-v102577.html?v=10.25.79'">FINAL DONOR PHOTO SWEEP</button>
+    <button class="green" onclick="location.href='./final-photo-recovery-v102576.html?v=10.25.79'">FINAL PHOTO RECOVERY</button>
+    <button class="purple" onclick="location.href='./recovery-master-v102576.html?v=10.25.79'">CLEAN RECOVERY MASTER TOOLS</button>
+    <button class="blue" onclick="location.href='./recovery-audit-v102569.html?v=10.25.79'">WORK-TYPE AUDIT</button>
+    <button class="gray" onclick="location.href='./'">BACK TO FIELDVERIFY</button>
+  </div>
+  <div class="card small">This launcher avoids the button-injection failure seen in v10.25.77–.78. Each recovery tool opens directly.</div>
+</div>
+<script>
+'use strict';
+const PROJECTS_KEY='fieldVerifyProjects',ACTIVE_KEY='fieldVerifyActiveProject';
+function read(k,f){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?f:v}catch{return f}}
+const id=localStorage.getItem(ACTIVE_KEY)||'',ps=read(PROJECTS_KEY,[]),p=(Array.isArray(ps)?ps:[]).find(x=>String(x&&x.id||'')===id);
+const el=document.getElementById('project');
+if(p&&p.recoveryMaster){el.innerHTML='<b>'+String(p.name||'Recovery Master')+'</b><div class="small">Active Recovery Master ID: '+id+'</div>';el.style.background='#e7f7ec';el.style.borderColor='#a9d6b5'}
+else{el.innerHTML='<b>Active project is not marked as a Recovery Master.</b><div class="small">Open the newest “Recovery Master — VERIFY BEFORE USE” before running photo recovery tools.</div>';el.style.background='#fdecec';el.style.borderColor='#e3abab'}
+</script>
+</body></html>
