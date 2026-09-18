@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FieldVerify PDF Photo Recovery</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16202a;background:#eef2f6}
+*{box-sizing:border-box}body{margin:0;padding:16px}.wrap{max-width:780px;margin:auto}
+.top{background:#083a73;color:#fff;padding:16px;border-radius:16px}.top h1{margin:0 0 4px;font-size:24px}
+.card{background:#fff;border:1px solid #d7dee7;border-radius:16px;padding:14px;margin:12px 0}
+.ok{background:#e7f7ec;border-color:#a9d6b5}.warn{background:#fff4cc;border-color:#e5c04b}.bad{background:#fdecec;border-color:#e3abab}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{background:#eef3f8;border-radius:12px;padding:12px;text-align:center}.metric b{display:block;font-size:25px;color:#083a73}
+button,label.pick{display:block;width:100%;padding:15px;margin:8px 0;border:0;border-radius:12px;font-size:17px;font-weight:900;text-align:center}
+.blue{background:#083a73;color:#fff}.green{background:#16803d;color:#fff}.gray{background:#e7edf4;color:#16202a}
+.small{font-size:12px;color:#66717c;line-height:1.45}.status{white-space:pre-wrap;line-height:1.45}
+input[type=file]{display:none}
+@media(max-width:520px){.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>PDF Photo Recovery</h1><div>v10.25.81 · restore original report photos</div></div>
+  <div class="card warn"><b>Safety</b><div class="small">
+    This recovery only adds a photo when that exact photo ID is missing from this device. It never replaces an existing working photo.
+    Each recovered image is tied to the caisson number embedded in the recovery pack. Source projects are not changed.
+  </div></div>
+  <div id="project" class="card">Checking active Recovery Master…</div>
+  <div class="card">
+    <label class="pick blue" for="packs">CHOOSE RECOVERY PACKS</label>
+    <input id="packs" type="file" accept=".json,application/json" multiple>
+    <button id="openApp" class="gray">OPEN FIELDVERIFY</button>
+  </div>
+  <div id="summary"></div>
+  <div id="status" class="card status small">Download the six FieldVerify PDF Photo Recovery pack files, then choose all six here. You can also import them one at a time.</div>
+</div>
+<script>
+'use strict';
+const BUILD='10.25.81';
+const PROJECTS_KEY='fieldVerifyProjects',ACTIVE_KEY='fieldVerifyActiveProject';
+const $=id=>document.getElementById(id);
+const uniq=a=>[...new Set((a||[]).filter(Boolean).map(String))];
+function read(k,f){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?f:v}catch{return f}}
+function recordsKey(id){return 'fieldVerifyProjectRecords:'+id}
+function getRecords(id){const v=read(recordsKey(id),{});return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}
+function saveRecords(id,r){localStorage.setItem(recordsKey(id),JSON.stringify(r))}
+function status(s){$('status').textContent=s}
+function activeInfo(){const id=localStorage.getItem(ACTIVE_KEY)||'',ps=read(PROJECTS_KEY,[]),p=(Array.isArray(ps)?ps:[]).find(x=>String(x&&x.id||'')===id);return{id,p}}
+function ensureMaster(){
+  const a=activeInfo();
+  if(!a.id||!a.p||!a.p.recoveryMaster){
+    $('project').className='card bad';
+    $('project').innerHTML='<b>Open the Recovery Master first.</b><div class="small">This tool will not write into a normal/source project.</div>';
+    $('packs').disabled=true;return null;
+  }
+  $('project').className='card ok';
+  $('project').innerHTML='<b>'+String(a.p.name||'Recovery Master')+'</b><div class="small">Active master ID: '+a.id+'<br>Existing photos will not be overwritten.</div>';
+  return a;
+}
+function openDB(){return new Promise((res,rej)=>{const q=indexedDB.open('ordCaissonPhotos',3);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('photos'))q.result.createObjectStore('photos',{keyPath:'id'})};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function req(q){return new Promise((res,rej)=>{q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+function done(tx){return new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)})}
+function decodeDataUrl(value){
+  const m=String(value||'').match(/^data:([^;,]+)?;base64,(.*)$/s);
+  if(!m)throw Error('Invalid image data');
+  const bin=atob(m[2].replace(/\s/g,'')),bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:m[1]||'image/jpeg'});
+}
+async function getPhoto(id){const db=await openDB(),tx=db.transaction('photos','readonly'),v=await req(tx.objectStore('photos').get(String(id)));await done(tx);return v}
+async function putIfMissing(row){
+  const old=await getPhoto(row.id);
+  if(old&&old.blob&&old.blob.size)return{written:false,row:old};
+  const db=await openDB(),tx=db.transaction('photos','readwrite'),s=tx.objectStore('photos');s.put(row);await done(tx);
+  const verify=await getPhoto(row.id);if(!verify||!verify.blob||!verify.blob.size)throw Error('Photo write verification failed');
+  return{written:true,row:verify};
+}
+function keyForCaisson(records,n){
+  const target='Caisson:'+String(n);
+  for(const [k,r] of Object.entries(records)){
+    if(String(r&&r.canonicalItemKey||'')===target)return k;
+    if(String(r&&r.itemType||'Caisson')==='Caisson' && String(r&&r.sourceNumber||'')===String(n))return k;
+  }
+  return Object.prototype.hasOwnProperty.call(records,String(n))?String(n):String(n);
+}
+function removeMissing(r,id){
+  r.recoveryMissingPhotoRefs=(Array.isArray(r.recoveryMissingPhotoRefs)?r.recoveryMissingPhotoRefs:[]).filter(x=>String(x)!==String(id));
+  r.recoveryReviewReasons=(Array.isArray(r.recoveryReviewReasons)?r.recoveryReviewReasons:[]).filter(x=>!/^\d+ missing photo reference/.test(String(x)));
+  if(r.recoveryMissingPhotoRefs.length)r.recoveryReviewReasons.unshift(r.recoveryMissingPhotoRefs.length+' missing photo reference(s)');
+  r.recoveryNeedsReview=r.recoveryReviewReasons.length>0;
+}
+async function currentSummary(master){
+  const rs=getRecords(master.id),refs=uniq(Object.values(rs).flatMap(r=>Array.isArray(r&&r.photos)?r.photos:[]));
+  let present=0;
+  for(const id of refs){const p=await getPhoto(id);if(p&&p.blob&&p.blob.size)present++}
+  const missingEvidence=Object.values(rs).reduce((n,r)=>n+(Array.isArray(r&&r.recoveryMissingPhotoRefs)?r.recoveryMissingPhotoRefs.length:0),0);
+  return{records:Object.keys(rs).length,refs:refs.length,present,broken:refs.length-present,missingEvidence};
+}
+async function importFiles(files){
+  if(!master)return;
+  const rs=getRecords(master.id),backup={created:new Date().toISOString(),build:BUILD,masterId:master.id,records:{}};
+  let restored=0,already=0,failed=0,processed=0;
+  const parsed=[];
+  for(const file of files){
+    status('Reading '+file.name+'…');
+    try{
+      const data=JSON.parse(await file.text());
+      if(data.type!=='fieldverify-pdf-photo-recovery-pack'||!Array.isArray(data.photos))throw Error('Not a FieldVerify PDF Photo Recovery pack');
+      parsed.push({file,data});
+    }catch(e){failed++;status('Could not read '+file.name+': '+(e.message||e))}
+  }
+  const all=parsed.flatMap(x=>x.data.photos||[]);
+  if(!all.length){status('No recovery photos were found in the selected files.');return}
+  for(const p of all){
+    processed++;status('Recovering photo '+processed+' of '+all.length+'…\nCaisson '+p.caisson);
+    try{
+      if(!p.id||!p.caisson||!p.data)throw Error('Recovery photo is missing required data');
+      if(!String(p.id).startsWith(String(p.caisson)+'-'))throw Error('Photo ID / caisson mismatch');
+      const k=keyForCaisson(rs,p.caisson),r={...(rs[k]||{})};
+      if(!backup.records[k])backup.records[k]=rs[k]||null;
+      const old=await getPhoto(p.id);
+      if(old&&old.blob&&old.blob.size){already++}
+      else{
+        const blob=decodeDataUrl(p.data);if(!blob.size)throw Error('Decoded image is empty');
+        await putIfMissing({id:String(p.id),caisson:Number(p.caisson)||p.caisson,number:Number(p.caisson)||p.caisson,item_key:String(p.caisson),itemType:'Caisson',canonicalItemKey:'Caisson:'+p.caisson,projectId:master.id,name:p.name||('Recovered-'+p.id+'.jpg'),type:p.type||blob.type||'image/jpeg',blob,date:new Date().toISOString(),recoverySource:p.recoverySource||'August 5 PDF recovery',sourcePdfPage:p.sourcePdfPage||null,recoveryConfidence:1});
+        restored++;
+      }
+      r.photos=uniq([...(Array.isArray(r.photos)?r.photos:[]),String(p.id)]);
+      removeMissing(r,String(p.id));
+      r.recoveryRecoveredPhotoEvidence=[...(Array.isArray(r.recoveryRecoveredPhotoEvidence)?r.recoveryRecoveredPhotoEvidence:[]),{id:String(p.id),source:'original Aug 5 full project PDF',confidence:1,recoveredAt:new Date().toISOString(),build:BUILD,pdfPage:p.sourcePdfPage||null}];
+      rs[k]=r;
+      if(processed%2===0)saveRecords(master.id,rs);
+      await new Promise(r=>setTimeout(r,15));
+    }catch(e){console.error(e);failed++}
+  }
+  try{localStorage.setItem('fieldVerifyPdfRecoveryBackup:'+master.id+':'+Date.now(),JSON.stringify(backup))}catch{}
+  saveRecords(master.id,rs);
+  const s=await currentSummary(master);
+  $('summary').innerHTML='<div class="card ok"><b>Recovery pass complete</b><div class="grid" style="margin-top:10px">'+
+    '<div class="metric"><b>'+restored+'</b><span>new photos restored</span></div>'+
+    '<div class="metric"><b>'+already+'</b><span>already on device</span></div>'+
+    '<div class="metric"><b>'+s.records+'</b><span>master records</span></div>'+
+    '<div class="metric"><b>'+s.missingEvidence+'</b><span>missing-photo evidence left</span></div>'+
+    '</div><div class="small" style="margin-top:10px">Linked photo refs: '+s.refs+' · Photo blobs present: '+s.present+' · Broken linked refs: '+s.broken+' · Failed imports: '+failed+'</div></div>';
+  status('Finished. Existing working photos were not replaced. '+(s.missingEvidence===0&&s.broken===0?'The Recovery Master has no unresolved photo gaps from this recovery set. Tap OPEN FIELDVERIFY and use the Recovery Master.':'You can import any remaining recovery pack files, then run this again.'));
+}
+const master=ensureMaster();
+$('packs').onchange=e=>{const files=[...(e.target.files||[])];if(files.length)importFiles(files).catch(err=>{console.error(err);status('Recovery stopped: '+(err.message||err))});e.target.value=''};
+$('openApp').onclick=()=>location.href='./?v=10.25.80';
+</script>
+</body>
+</html>
