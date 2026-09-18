@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.46';
+const BUILD='10.25.87-auto-connect';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 let sb=null,session=null,channel=null,syncReady=false,syncTimer=null,pullTimer=null,initialized=false;
@@ -38,7 +38,24 @@ async function activateRemoteProject(p){let local=projects.find(x=>x.cloudId===p
 async function joinProject(){const code=document.getElementById('fvJoinCode')?.value.trim();if(!code)return;const r=await sb.rpc('fieldverify_join_project',{join_code:code});if(r.error)return announce(`Join failed: ${r.error.message}`);const q=await sb.from('fieldverify_projects').select('*').eq('id',r.data).single();if(q.error)return announce(`Join failed: ${q.error.message}`);await activateRemoteProject(q.data)}
 async function createInvite(){const pid=cloudId();if(!pid)return;const bytes=new Uint8Array(5);crypto.getRandomValues(bytes);const code=[...bytes].map(x=>(x%36).toString(36)).join('').toUpperCase();const r=await sb.from('fieldverify_project_invites').insert({project_id:pid,code,role:'member',uses_remaining:50}).select().single();if(r.error)return announce(`Code failed: ${r.error.message}`);document.getElementById('fvCloudBody').innerHTML+=`<div style="margin-top:12px;padding:14px;background:#eef3f8;border-radius:12px;text-align:center"><div class="tiny">PROJECT JOIN CODE</div><div style="font-size:32px;font-weight:900;letter-spacing:3px">${html(code)}</div></div>`}
 async function init(){if(initialized)return;initialized=true;injectUi();wrapLocalWrites();try{await loadClient();if(session)await autoConnect();else status('Cloud: Sign in')}catch(e){console.error(e);status('Cloud: Offline')}}
-function startup(){injectUi();status('Cloud')}
+async function startup(){
+ injectUi();
+ status('Cloud: Connecting…');
+ try{
+  await init();
+  if(session&&cloudId()){
+   status('Cloud: Connected');
+   setTimeout(()=>{try{window.FIELDVERIFY_CLOUD_PHOTO_UPLOAD_FIX?.run?.()}catch{}},800);
+  }else if(!session){
+   status('Cloud: Sign in');
+  }else{
+   status('Cloud: Signed in');
+  }
+ }catch(e){
+  console.warn('FieldVerify automatic Cloud connect',e);
+  status(navigator.onLine?'Cloud: Check failed':'Cloud: Offline');
+ }
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startup,{once:true});else startup();
 window.FIELDVERIFY_CLOUD_SYNC={build:BUILD,sync:async()=>{await init();return syncAll(true)},pullMetadata:async()=>{await init();return pullMetadata(true)},init};
 })();
