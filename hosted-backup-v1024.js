@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.24-hosted-backup-1';
+const VERSION='10.25.88-hosted-backup-safe';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 const DRAWING_META_KEY='fieldVerifyDrawingLibraryV1024';
@@ -61,7 +61,17 @@ async function saveSnapshot(kind='manual',quiet=false){
  if(!quiet)say(kind==='auto'?'Project autosaved to hosting':'Project backup saved to hosting');return true;
 }
 function queueAuto(){clearTimeout(autoTimer);autoTimer=setTimeout(async()=>{if(autoBusy||!navigator.onLine)return;autoBusy=true;try{await saveSnapshot('auto',true)}catch(e){console.warn('Hosted autosave',e)}finally{autoBusy=false}},4000)}
-async function hostedBackup(){try{say('Saving complete project to hosting…');await saveSnapshot('manual',false)}catch(e){say(`Hosted backup failed: ${e.message}`)}}
+async function hostedBackup(){
+ try{
+  say('Saving project records to Cloud…');
+  const id=await requireHosted();if(!navigator.onLine)throw Error('Internet connection required for Cloud backup');
+  if(window.FIELDVERIFY_CLOUD_PHOTO_UPLOAD_FIX?.run)await window.FIELDVERIFY_CLOUD_PHOTO_UPLOAD_FIX.run();
+  const snap=snapshotObject('manual');
+  const q=await sb.from('fieldverify_project_backups').insert({project_id:id,backup_kind:'manual',name:`${projectName()} - ${new Date().toLocaleString()}`,snapshot:snap});
+  if(q.error)throw q.error;
+  say('Cloud backup saved ✓');
+ }catch(e){console.error('FieldVerify safe Cloud backup',e);say(`Cloud backup failed — local data kept: ${e?.message||e}`)}
+}
 function modalShell(title,body){document.getElementById('fvHostedRestoreModal')?.remove();const d=document.createElement('div');d.id='fvHostedRestoreModal';d.style.cssText='position:fixed;inset:0;z-index:1100;background:#000a;padding:18px;overflow:auto';d.innerHTML=`<div style="max-width:560px;margin:5vh auto;background:#fff;color:#16202a;border-radius:18px;padding:18px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2 style="margin:0">${esc(title)}</h2><button id="fvHostedClose" style="padding:10px">Close</button></div><div id="fvHostedBody" style="margin-top:12px">${body}</div></div>`;document.body.appendChild(d);d.querySelector('#fvHostedClose').onclick=()=>d.remove();return d}
 async function restoreSnapshotRow(row){
  const id=await requireHosted(),snap=row.snapshot||{};if(!snap.records||typeof snap.records!=='object')throw Error('Backup has no project records');say('Restoring hosted project…');
