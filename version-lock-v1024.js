@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.79';
+const BUILD='10.25.80';
 function apply(){const title=document.querySelector('.top .title');if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;document.title=`FieldVerify Pro v${BUILD}`;document.documentElement.setAttribute('data-fieldverify-version',BUILD);try{localStorage.setItem('fieldVerifyInstalledBuild',BUILD)}catch{}}
 function hasFile(file){return [...document.scripts].some(s=>String(s.src||'').includes('/'+file)||String(s.src||'').includes(file))}
 function loadScript(file){if(hasFile(file))return Promise.resolve();return new Promise(resolve=>{const s=document.createElement('script');s.src=`./${file}?v=${BUILD}`;s.async=false;s.dataset.fieldverifyHotfix=file;s.onload=resolve;s.onerror=()=>{console.warn('FieldVerify optional module failed: '+file);resolve()};document.body.appendChild(s)})}
@@ -11,7 +11,7 @@ function ensureRecoveryButton(){
   b.id='fvRecoveryDirectBtn';
   b.textContent='DATA RECOVERY';
   b.style.cssText='background:#7b3fc6!important;color:#fff!important;';
-  b.onclick=e=>{e.preventDefault();e.stopPropagation();location.href=`./recovery-center-v102579.html?v=${BUILD}`};
+  b.onclick=e=>{e.preventDefault();e.stopPropagation();location.href=`./recovery-center-v102580.html?v=${BUILD}`};
   (restore||backup).insertAdjacentElement('afterend',b);
  }
 }
