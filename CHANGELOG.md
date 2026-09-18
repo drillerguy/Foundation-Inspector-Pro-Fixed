@@ -17,6 +17,13 @@ Recovery-only tooling should be marked **Recovery / Support** and kept separate 
 
 ---
 
+## v10.25.79 — 2026-09-17
+**Recovery / Direct Recovery Center**
+- Replaced the fragile Recovery Master button-injection path with a standalone **Data Recovery** launcher.
+- The launcher opens Final Donor Photo Sweep, Final Photo Recovery, Clean Recovery Master tools, and Work-Type Audit directly.
+- This avoids the v10.25.77–.78 “donor sweep button was not injected” failure.
+- No source project records or photo blobs are changed by the launcher.
+
 ## v10.25.78 — 2026-09-17
 **Recovery / Donor Sweep Launcher Fix**
 - Fixed the Recovery Master page failing to load when adding the Final Donor Photo Sweep button.
