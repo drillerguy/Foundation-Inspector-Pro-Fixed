@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.25.83-backup-choice';
+const VERSION='10.25.85-backup-choice';
 function say(s){try{toast(s)}catch{}}
 function esc(s){return String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 function projectName(){try{return activeProject()?.name||'FieldVerify Project'}catch{return'FieldVerify Project'}}
@@ -17,21 +17,23 @@ function modal(title,body){
  document.body.appendChild(d);d.querySelector('#fvChoiceClose').onclick=()=>d.remove();return d;
 }
 function isRecoveryMaster(){try{return !!activeProject()?.recoveryMaster}catch{return false}}
+async function hostedAction(isBackup){
+ try{
+  if(!window.FIELDVERIFY_HOSTED_BACKUP&&typeof loadScript==='function')await loadScript('hosted-backup-v1024.js');
+  const h=window.FIELDVERIFY_HOSTED_BACKUP;
+  if(!h)throw Error('Hosted backup service did not load');
+  return isBackup?h.backup():h.restore();
+ }catch(e){say('Cloud backup service failed: '+(e?.message||e))}
+}
 function choiceButtons(kind){
  const isBackup=kind==='backup';
- if(isBackup&&isRecoveryMaster()){
-  const c=window.FIELDVERIFY_CLEAN_ARCHIVE;
-  if(!c||typeof c.save!=='function')return say('Clean Recovery Master backup is still loading. Try again in a moment.');
-  c.save();
-  return;
- }
  const d=modal(isBackup?'Backup Project':'Restore Project',`
   <p style="margin:0 0 12px;color:#596775">Choose where you want to ${isBackup?'save the backup':'restore the project from'}.</p>
-  <button id="fvChoiceHosting" style="display:block;width:100%;padding:16px;margin:8px 0;background:#083a73;color:#fff;border-radius:12px;font-size:17px;font-weight:900">${isBackup?'BACKUP TO HOSTING':'RESTORE FROM HOSTING'}</button>
-  <button id="fvChoiceDevice" style="display:block;width:100%;padding:16px;margin:8px 0;background:#e7edf4;color:#16202a;border-radius:12px;font-size:17px;font-weight:900">${isBackup?'BACKUP TO DEVICE':'RESTORE FROM DEVICE'}</button>
+  <button id="fvChoiceHosting" style="display:block;width:100%;padding:16px;margin:8px 0;background:#083a73;color:#fff;border-radius:12px;font-size:17px;font-weight:900">${isBackup?'BACKUP TO CLOUD':'RESTORE FROM CLOUD'}</button>
+  <button id="fvChoiceDevice" style="display:block;width:100%;padding:16px;margin:8px 0;background:#e7edf4;color:#16202a;border-radius:12px;font-size:17px;font-weight:900">${isBackup?(isRecoveryMaster()?'SAVE CLEAN MASTER TO DEVICE':'BACKUP TO DEVICE'):'RESTORE FROM DEVICE'}</button>
   <div style="font-size:12px;color:#687480;margin-top:10px">${isBackup?'On iPhone/iPad, Backup to Device opens the normal share/save sheet so you can choose Save to Files, choose a folder, and change the filename before saving.':'Restore from Device opens the file picker so you can choose a FieldVerify backup saved on this phone, iCloud Drive, Files, or another available location.'}</div>`);
- d.querySelector('#fvChoiceHosting').onclick=()=>{d.remove();const h=window.FIELDVERIFY_HOSTED_BACKUP;if(!h)return say('Hosted backup service is not ready');isBackup?h.backup():h.restore()};
- d.querySelector('#fvChoiceDevice').onclick=()=>{d.remove();isBackup?deviceBackup():deviceRestore()};
+ d.querySelector('#fvChoiceHosting').onclick=()=>{d.remove();hostedAction(isBackup)};
+ d.querySelector('#fvChoiceDevice').onclick=()=>{d.remove();if(isBackup&&isRecoveryMaster()){const a=window.FIELDVERIFY_CLEAN_ARCHIVE;if(!a||typeof a.save!=='function')return say('Clean Recovery Master backup is still loading. Try again in a moment.');a.save();return}isBackup?deviceBackup():deviceRestore()};
 }
 async function deviceBackup(){
  try{
