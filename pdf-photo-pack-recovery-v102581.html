@@ -14,7 +14,7 @@
 button,label.pick{display:block;width:100%;padding:15px;margin:8px 0;border:0;border-radius:12px;font-size:17px;font-weight:900;text-align:center}
 .blue{background:#083a73;color:#fff}.green{background:#16803d;color:#fff}.gray{background:#e7edf4;color:#16202a}
 .small{font-size:12px;color:#66717c;line-height:1.45}.status{white-space:pre-wrap;line-height:1.45}
-input[type=file]{display:none}
+input[type=file]{display:block;width:100%;padding:14px;border:2px solid #083a73;border-radius:12px;background:#fff;color:#16202a;font-size:16px}
 @media(max-width:520px){.grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -27,13 +27,14 @@ input[type=file]{display:none}
   </div></div>
   <div id="project" class="card">Checking active Recovery Master…</div>
   <div class="card">
-    <label class="pick blue" for="packs">CHOOSE RECOVERY PACKS</label>
-    <input id="packs" type="file" accept=".json,application/json" multiple>
+    <div class="small" style="margin-bottom:8px"><b>Select the ZIP from ChatGPT directly.</b> You do not need to unzip it. You can also select JSON packs.</div>
+    <input id="packs" type="file" accept=".zip,.json,application/zip,application/json" multiple>
     <button id="openApp" class="gray">OPEN FIELDVERIFY</button>
   </div>
   <div id="summary"></div>
-  <div id="status" class="card status small">Download the six FieldVerify PDF Photo Recovery pack files, then choose all six here. You can also import them one at a time.</div>
+  <div id="status" class="card status small">Choose the FieldVerify PDF Photo Recovery ZIP from your Files app. You do not need to unzip it. You can also select individual JSON packs.</div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 'use strict';
 const BUILD='10.25.81';
@@ -104,9 +105,21 @@ async function importFiles(files){
   for(const file of files){
     status('Reading '+file.name+'…');
     try{
-      const data=JSON.parse(await file.text());
-      if(data.type!=='fieldverify-pdf-photo-recovery-pack'||!Array.isArray(data.photos))throw Error('Not a FieldVerify PDF Photo Recovery pack');
-      parsed.push({file,data});
+      if(/\.zip$/i.test(file.name||'')){
+        if(!window.JSZip)throw Error('ZIP reader did not load. Reload this page and try again.');
+        const zip=await JSZip.loadAsync(file);
+        const names=Object.keys(zip.files).filter(n=>/\.json$/i.test(n)&&!zip.files[n].dir);
+        let found=0;
+        for(const name of names){
+          const data=JSON.parse(await zip.files[name].async('string'));
+          if(data.type==='fieldverify-pdf-photo-recovery-pack'&&Array.isArray(data.photos)){parsed.push({file:{name},data});found++;}
+        }
+        if(!found)throw Error('No FieldVerify recovery packs were found in the ZIP');
+      }else{
+        const data=JSON.parse(await file.text());
+        if(data.type!=='fieldverify-pdf-photo-recovery-pack'||!Array.isArray(data.photos))throw Error('Not a FieldVerify PDF Photo Recovery pack');
+        parsed.push({file,data});
+      }
     }catch(e){failed++;status('Could not read '+file.name+': '+(e.message||e))}
   }
   const all=parsed.flatMap(x=>x.data.photos||[]);
