@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.25.85-backup-choice';
+const VERSION='10.25.88-backup-choice';
 function say(s){try{toast(s)}catch{}}
 function esc(s){return String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 function projectName(){try{return activeProject()?.name||'FieldVerify Project'}catch{return'FieldVerify Project'}}
@@ -39,17 +39,25 @@ async function deviceBackup(){
  try{
   if(typeof buildProjectBackup!=='function')throw Error('Device backup engine is not ready');
   say('Preparing complete device backup…');
-  const built=await buildProjectBackup();
-  const payload=built?.payload||built;
+  const built=await buildProjectBackup(),payload=built?.payload||built;
   if(!payload||typeof payload!=='object')throw Error('Could not build project backup');
   const filename=`FieldVerify-Pro-${safeName(projectName())}-Backup-${new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)}.json`;
   const file=new File([JSON.stringify(payload)],filename,{type:'application/json'});
-  if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-   try{await navigator.share({files:[file],title:`FieldVerify Pro - ${projectName()}`});say('Device backup ready');return}catch(err){if(err?.name==='AbortError'){say('Device backup canceled');return}}
-  }
-  if(typeof downloadFile==='function'){downloadFile(file);say('Backup saved to device downloads');return}
-  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),30000);say('Backup saved to device');
+  preparedDevice={file,filename};
+  const d=modal('Device Backup Ready',`<div style="background:#e7f7ec;border:1px solid #a9d6b5;border-radius:12px;padding:12px"><b>Backup is ready.</b><div style="font-size:13px;margin-top:5px">Nothing on the phone was deleted or changed.</div></div><button id="fvSavePreparedDevice" style="display:block;width:100%;padding:16px;margin:12px 0;background:#16803d;color:#fff;border-radius:12px;font-size:18px;font-weight:900">SAVE BACKUP TO FILES</button><div style="font-size:12px;color:#687480">Tap the green button. This fresh tap opens the iPhone share sheet; choose <b>Save to Files</b> and then choose iCloud Drive or On My iPhone.</div>`);
+  d.querySelector('#fvSavePreparedDevice').onclick=savePreparedDevice;
  }catch(e){say(`Device backup failed: ${e.message}`)}
+}
+let preparedDevice=null;
+async function savePreparedDevice(){
+ const file=preparedDevice?.file;if(!file)return say('Build the device backup again');
+ try{
+  if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+   await navigator.share({files:[file],title:`FieldVerify Pro - ${projectName()}`});say('Device backup saved/shared');return;
+  }
+ }catch(err){if(err?.name==='AbortError'){say('Device backup canceled');return}console.warn('Device share failed',err)}
+ if(typeof downloadFile==='function'){downloadFile(file);say('Backup downloaded to device');return}
+ const u=URL.createObjectURL(file),a=document.createElement('a');a.href=u;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);say('Backup downloaded to device');
 }
 function deviceRestore(){
  const input=document.getElementById('restoreInput');
