@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.23';
+const BUILD='10.25.81-r2';
 const RECOVERY_PREFIX='FieldVerify-PDF-Photo-Recovery-';
 const unique=v=>[...new Set((v||[]).filter(Boolean).map(String))];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -39,9 +39,15 @@ function transactionPromise(tx){
 }
 
 async function putOnePhoto(p){
+  const db=await openDB();
+  const checkTx=db.transaction('photos','readonly');
+  const checkDone=transactionPromise(checkTx);
+  const existing=await requestPromise(checkTx.objectStore('photos').get(String(p.id)));
+  await checkDone;
+  if(existing?.blob && Number(existing.blob.size))return existing;
+
   const blob=decodeDataUrl(p.data);
   if(!blob.size)throw new Error('Decoded photo is empty');
-  const db=await openDB();
   const tx=db.transaction('photos','readwrite');
   const done=transactionPromise(tx);
   const row={...p,blob};
