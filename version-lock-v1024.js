@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.84';
+const BUILD='10.25.85';
 function apply(){const title=document.querySelector('.top .title');if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;document.title=`FieldVerify Pro v${BUILD}`;document.documentElement.setAttribute('data-fieldverify-version',BUILD);try{localStorage.setItem('fieldVerifyInstalledBuild',BUILD)}catch{}}
 function hasFile(file){return [...document.scripts].some(s=>String(s.src||'').includes('/'+file)||String(s.src||'').includes(file))}
 function loadScript(file){if(hasFile(file))return Promise.resolve();return new Promise(resolve=>{const s=document.createElement('script');s.src=`./${file}?v=${BUILD}`;s.async=false;s.dataset.fieldverifyHotfix=file;s.onload=resolve;s.onerror=()=>{console.warn('FieldVerify optional module failed: '+file);resolve()};document.body.appendChild(s)})}
@@ -40,12 +40,14 @@ async function start(){
   await loadScript('cloud-sync-verify-v102564.js');
   await loadScript('data-recovery-v102566.js');
   await loadScript('clean-master-archive-v102584.js');
+  await loadScript('backup-choice-v1024.js');
+  await loadScript('gps-follow-arrow-v102585.js');
   ensureRecoveryButton();
   apply();
 }
 function lazy(file){loadScript(file).catch(()=>{})}
 document.addEventListener('click',e=>{
-  if(e.target?.closest?.('#backupBtn,#restoreBtn')){lazy('hosted-backup-v1024.js');lazy('backup-choice-v1024.js')}
+  if(e.target?.closest?.('#backupBtn,#restoreBtn')){lazy('backup-choice-v1024.js')}
   if(e.target?.closest?.('#cameraInput,#libraryInput,.photo-thumb,.photo')){lazy('photo-link-display-fix-v102521.js');lazy('photo-viewer-v1027.js')}
 },true);
 const obs=new MutationObserver(()=>ensureRecoveryButton());obs.observe(document.documentElement,{childList:true,subtree:true});setInterval(ensureRecoveryButton,1200);
