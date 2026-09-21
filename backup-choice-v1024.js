@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.25.88-backup-choice';
+const VERSION='10.25.89-backup-choice';
 function say(s){try{toast(s)}catch{}}
 function esc(s){return String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 function projectName(){try{return activeProject()?.name||'FieldVerify Project'}catch{return'FieldVerify Project'}}
@@ -62,7 +62,36 @@ async function savePreparedDevice(){
 function deviceRestore(){
  const input=document.getElementById('restoreInput');
  if(!input)return say('Device restore picker is not available');
- input.value='';input.click();
+ const oldParent=input.parentNode,oldNext=input.nextSibling,oldClass=input.className,oldStyle=input.getAttribute('style');
+ let closed=false;
+ const d=modal('Restore Backup from Device',`
+  <div style="background:#fff4cc;border:1px solid #e5c04b;border-radius:12px;padding:12px;margin-bottom:12px"><b>Choose your FieldVerify backup file.</b><div style="font-size:13px;margin-top:5px">Use Files / iCloud Drive / On My iPhone. JSON backups and restorable FieldVerify PDFs are accepted.</div></div>
+  <button id="fvOpenRestorePicker" style="display:block;width:100%;padding:16px;margin:8px 0;background:#083a73;color:#fff;border-radius:12px;font-size:18px;font-weight:900">SELECT BACKUP FROM FILES</button>
+  <div id="fvRestoreInputMount" style="margin-top:10px"></div>
+  <div style="font-size:12px;color:#687480;margin-top:10px">If the blue button does not open Files, tap the file selector shown directly below it.</div>`);
+ const mount=d.querySelector('#fvRestoreInputMount');
+ input.value='';
+ input.accept='application/json,.json,.fip.json,application/pdf,.pdf';
+ input.multiple=true;input.setAttribute('multiple','multiple');
+ input.classList.remove('hidden');input.removeAttribute('hidden');
+ input.style.cssText='display:block!important;width:100%;min-height:48px;padding:10px;border:1px solid #b9c4cf;border-radius:10px;background:#fff;color:#16202a;font-size:16px';
+ mount.appendChild(input);
+ function restoreInputHome(){
+  if(oldClass)input.className=oldClass;else input.removeAttribute('class');
+  if(oldStyle===null)input.removeAttribute('style');else input.setAttribute('style',oldStyle);
+  if(oldParent){
+   if(oldNext&&oldNext.parentNode===oldParent)oldParent.insertBefore(input,oldNext);else oldParent.appendChild(input);
+  }else document.body.appendChild(input);
+ }
+ function close(){
+  if(closed)return;closed=true;restoreInputHome();d.remove();
+ }
+ const closeBtn=d.querySelector('#fvChoiceClose');if(closeBtn)closeBtn.onclick=close;
+ d.querySelector('#fvOpenRestorePicker').onclick=()=>{
+  try{if(typeof input.showPicker==='function')input.showPicker();else input.click()}
+  catch{try{input.click()}catch{say('Tap the file selector below to choose your backup')}}
+ };
+ input.addEventListener('change',()=>{if(input.files&&input.files.length)setTimeout(close,250)},{once:true});
 }
 function bind(){
  const b=document.getElementById('backupBtn');if(b&&!b.dataset.choice){b.dataset.choice='1';b.textContent='BACKUP PROJECT';b.onclick=e=>{e.preventDefault();e.stopPropagation();choiceButtons('backup')}}
