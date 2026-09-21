@@ -24,6 +24,13 @@ Recovery-only tooling should be marked **Recovery / Support** and kept separate 
 - This avoids the v10.25.77–.78 “donor sweep button was not injected” failure.
 - No source project records or photo blobs are changed by the launcher.
 
+## v10.25.89 — 2026-09-21
+**Backup / Restore**
+- Fixed iPhone/iPad **Restore from Device** so the backup file picker is a visible, direct user action instead of relying only on a hidden file input.
+- Added a dedicated **SELECT BACKUP FROM FILES** button plus a visible file selector fallback.
+- Restore accepts FieldVerify JSON backups and restorable FieldVerify PDFs from Files, iCloud Drive, or On My iPhone.
+- This patch does not clear browser storage or modify project data until the user explicitly selects a backup file.
+
 ## v10.25.78 — 2026-09-17
 **Recovery / Donor Sweep Launcher Fix**
 - Fixed the Recovery Master page failing to load when adding the Final Donor Photo Sweep button.
