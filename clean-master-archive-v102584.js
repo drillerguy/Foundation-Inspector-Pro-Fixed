@@ -155,6 +155,7 @@ async function savePrepared(){
   try{toast('Clean Recovery Master downloaded')}catch{}
 }
 async function startSave(){
+  if(window.FIELDVERIFY_DEVICE_BACKUP)return window.FIELDVERIFY_DEVICE_BACKUP.prepare();
   try{await prepareCleanArchive()}
   catch(e){console.error(e);modal('Clean Archive Error','<div style="background:#fdecec;border:1px solid #e3abab;border-radius:12px;padding:12px"><b>'+(e&&e.message?e.message:String(e))+'</b></div><p style="font-size:12px;color:#687480">No project data was deleted or changed.</p>')}
 }

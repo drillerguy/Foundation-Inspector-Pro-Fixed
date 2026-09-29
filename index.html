@@ -70,7 +70,7 @@ function loadRecords(){
    const savedNcr=localStorage.getItem(projectNcrKey());ncrRows=savedNcr?JSON.parse(savedNcr):(activeProjectId==='legacy'?JSON.parse(localStorage.getItem(NCR_KEY)||'[]'):[]);
    if(!Array.isArray(ncrRows))ncrRows=[];
  }catch{records={};ncrRows=[]}
- persist()
+ persist();recoverPendingPhotoLinks().catch(console.error)
 }
 function persist(){localStorage.setItem(projectRecordsKey(),JSON.stringify(records));if(activeProjectId==='legacy')localStorage.setItem(NEW_KEY,JSON.stringify(records));renderPins();fitTransform()}
 function persistNcr(){localStorage.setItem(projectNcrKey(),JSON.stringify(ncrRows));if(activeProjectId==='legacy')localStorage.setItem(NCR_KEY,JSON.stringify(ncrRows))}
@@ -413,7 +413,7 @@ async function renderPdfDrawing(item,img){const pdf=await pdfInfo(item.blob),pag
 async function applyStoredDrawing(){const item=await drawingSetting(),img=$('planImage');if(img._customUrl)URL.revokeObjectURL(img._customUrl);img._customUrl=null;if(item?.blob){if(item.type==='application/pdf'||item.name?.toLowerCase().endsWith('.pdf'))await renderPdfDrawing(item,img);else{img._customUrl=URL.createObjectURL(item.blob);img.src=img._customUrl;img.alt=item.name||'Custom foundation drawing'}}else{img.src='caisson-plan.png';img.alt='Foundation caisson plan'}img.onload=()=>{drawBlueDot();if(targetNumber())scrollToSpot(targetNumber())}}
 async function restoreOriginalDrawing(){try{const db=await openDB(),tx=db.transaction('settings','readwrite');tx.objectStore('settings').delete(drawingStorageId());await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});await applyStoredDrawing();toast('Original drawing restored')}catch(err){toast(`Drawing reset failed: ${err.message}`)}}
 $('drawingInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(!file.type.startsWith('image/')&&file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf'))throw Error('Choose a PDF, PNG, JPG, WebP, or GIF file');toast(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')?'Rendering PDF drawing…':'Loading drawing…');await saveDrawing(file)}catch(err){toast(`Drawing load failed: ${err.message}`)}e.target.value=''};
-$('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
+$('cameraInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;try{await savePhotos(n,files)}catch(err){toast('Photo save failed: '+err.message)}finally{e.target.value=''}}
 async function allFromStore(db,name){return new Promise((res,rej)=>{const q=db.transaction(name).objectStore(name).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
 async function buildProjectBackup(){
  const photos=[],ncrPdfs=[],photoIds=new Set(Object.values(records).flatMap(r=>Array.isArray(r?.photos)?r.photos:[]));let customDrawing=null;
@@ -455,17 +455,29 @@ $('shareNowBtn').onclick=sharePendingOfficeFile;$('shareCancelBtn').onclick=()=>
 function blobToDataURL(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){const [h,b]=s.split(','),mime=(h.match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})}
 
-$('libraryInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;await savePhotos(n,files);e.target.value=''}
-async function savePhotos(n,files){
- const db=await openDB(),tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos'),r=rec(n),ids=[...(r.photos||[])];
- for(const f of files){const id=`${n}-${Date.now()}-${Math.random()}`;store.put({id,caisson:n,name:f.name,type:f.type,blob:f,date:new Date().toISOString()});ids.push(id)}
- await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
- records[n]={...r,photos:ids,updated:new Date().toISOString()};persist();showTarget();toast(`${files.length} photo${files.length===1?'':'s'} saved`)
-}
+$('libraryInput').onchange=async e=>{const n=+e.target.dataset.caisson,files=[...e.target.files];if(!n||!files.length)return;try{await savePhotos(n,files)}catch(err){toast('Photo save failed: '+err.message)}finally{e.target.value=''}}
+let photoSaveQueue=Promise.resolve();
+function savePhotos(n,files){const pid=activeProjectId,chosen=[...files];const job=photoSaveQueue.then(()=>savePhotosCommitted(n,chosen,pid));photoSaveQueue=job.catch(()=>{});return job}
+async function savePhotosCommitted(n,files,pid){
+ const db=await openDB();try{for(const f of files){
+ const id=`${n}-${Date.now()}-${crypto.randomUUID()}`,tx=db.transaction(['photos','settings'],'readwrite'),done=new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Photo save aborted'))});
+ tx.objectStore('photos').put({id,caisson:n,projectId:pid,name:f.name,type:f.type,blob:f,date:new Date().toISOString()});
+ // The link and file commit together; reload can recover a link if localStorage failed.
+ tx.objectStore('settings').put({id:`photo-link:${id}`,projectId:pid,caisson:n,photoId:id});await done;
+ const current=pid===activeProjectId;const rs=current?records:JSON.parse(localStorage.getItem(projectRecordsKey(pid))||'{}'),r=rs[n]||defaultRec();rs[n]={...r,photos:[...new Set([...(r.photos||[]),id])],updated:new Date().toISOString()};
+ try{localStorage.setItem(projectRecordsKey(pid),JSON.stringify(rs));if(pid==='legacy')localStorage.setItem(NEW_KEY,JSON.stringify(rs));const clear=db.transaction('settings','readwrite'),cleared=new Promise((res,rej)=>{clear.oncomplete=res;clear.onerror=()=>rej(clear.error);clear.onabort=()=>rej(clear.error)});clear.objectStore('settings').delete(`photo-link:${id}`);await cleared}catch(e){console.warn('Photo safely stored; link needs recovery',e)}
+ }
+ if(pid===activeProjectId){persist();showTarget()}toast(`${files.length} photo${files.length===1?'':'s'} committed on this device`);
+ }finally{db.close()}}
+async function recoverPendingPhotoLinks(){const pid=activeProjectId,db=await openDB();try{const pending=await allFromStore(db,'settings');if(pid!==activeProjectId)return;
+ const links=pending.filter(p=>p.id?.startsWith('photo-link:')&&p.projectId===pid);if(!links.length)return;
+ for(const p of links){const r=records[p.caisson]||defaultRec();records[p.caisson]={...r,photos:[...new Set([...(r.photos||[]),p.photoId])]}}
+ persist();const tx=db.transaction('settings','readwrite'),done=new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});for(const p of links)tx.objectStore('settings').delete(p.id);await done;
+ }finally{db.close()}}
 async function showPhotoPreview(n){
  const box=$('photoPreview'),count=$('photoCount');if(!box)return;
- const photos=await getPhotos(n);count.textContent=`${photos.length} photo${photos.length===1?'':'s'} saved`;
- box.innerHTML=photos.slice(0,6).map(p=>`<div><img src="${URL.createObjectURL(p.blob)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><button class="remove-photo next" data-id="${esc(p.id)}" style="width:100%;padding:7px;margin-top:3px">Remove</button></div>`).join('');
+ for(const u of box._photoUrls||[])URL.revokeObjectURL(u);box._photoUrls=[];const photos=await getPhotos(n);count.textContent=`${photos.length} photo${photos.length===1?'':'s'} saved`;
+ box.innerHTML=photos.slice(0,6).map(p=>`<div><img src="${(()=>{const u=URL.createObjectURL(p.blob);box._photoUrls.push(u);return u})()}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><button class="remove-photo next" data-id="${esc(p.id)}" style="width:100%;padding:7px;margin-top:3px">Remove</button></div>`).join('');
  box.querySelectorAll('.remove-photo').forEach(button=>button.onclick=()=>{if(confirm(`Remove this photo from ${itemName(n,rec(n))}?`)){const r=rec(n);historyChange(n,'Removed a photo',['photos'],{photos:(r.photos||[]).filter(id=>id!==button.dataset.id)})}})
 }
 async function getPhotos(n){
@@ -571,8 +583,9 @@ initializeProjects();installMapZoom();loadRecords();applyStoredDrawing();loadHot
 <script src="./pdf-photo-fix-v1019.js?v=10.24"></script>
 <script src="./photo-integrity-v1021.js?v=10.24"></script>
 <script src="./photo-recovery-import-v1023.js?v=10.25.81-r2"></script>
-<script src="./cloud-sync-v1024.js?v=10.25.89"></script>
+<script src="./cloud-sync-v1024.js?v=10.25.90"></script>
 <script src="./update-refresh-v1017.js?v=10.24"></script>
-<script src="./version-lock-v1024.js?v=10.25.89"></script>
+<script src="./version-lock-v1024.js?v=10.25.90"></script>
 </body>
 </html>
+

@@ -62,3 +62,16 @@ The drawing, numbered hotspot locations, verified starting control points, and E
 - Photos database: `ordCaissonPhotos`, store `photos`
 - Attached NCR markers: `ncrpdf:*`
 - Legacy attached NCR data: `ncrpdfdata:*` remains readable and is included in backups
+
+
+## v10.25.90 photo saving and backups
+
+- Photo files and pending record links commit in one IndexedDB transaction. Pending links recover after a reload if the record index could not be saved.
+- Cloud Sync uploads all available linked photos sequentially, reports failed/missing files, and resumes on reconnect or return to the app.
+- Cloud → DOWNLOAD ALL PHOTOS TO DEVICE stores actual files locally, skips cached files, and resumes an interrupted download. A screen wake lock is requested while transfers run where supported.
+- Device backup prepares one JSON part at a time, grouping approximately 8 MB of original attachments per part. Save **every** part to Files. Oversized individual attachments remain intact in their own part.
+- Restore accepts those parts together or individually, commits photos sequentially, and reports when more parts are needed. Older JSON/PDF restore remains available.
+- Cloud restore merges records locally without deleting the shared project's rows, and downloads photos.
+- The viewer reads exact linked IDs and cannot pull an unrelated photo with the same item number.
+
+Validation: `node --test --test-isolation=none tests/reliability.test.cjs` (Node 24). The suite exercises simulated IndexedDB/cloud faults, 270-photo uploads, paginated/resumable downloads, project changes, exact-ID viewing, and multipart attachment round trips. Native iPhone share-sheet behavior requires device verification.

@@ -1,4 +1,4 @@
-# FieldVerify Pro Changelog
+# v10.25.90 — 2026-09-29\n\n- Atomically commit photo files and recoverable links.\n- Drain cloud upload queues and resume sequential downloads with actual photo blobs.\n- Prepare device backup parts individually and restore them sequentially.\n- Preserve current shared records during cloud restore; display exact linked photos only.\n- Eight regression tests cover persistence faults, 270-photo uploads, paginated downloads, project switches, and backup round trips.\n\n# FieldVerify Pro Changelog
 
 This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.72 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
 
@@ -199,3 +199,4 @@ v11 is a development track and should not be treated as the current production a
 # Known recovery-era issue being corrected
 
 The legacy production record model can use the same numeric record key for different work types. Example: Caisson `284` and ERS `E-284` can collide if both are stored under numeric key `284`. Recovery work is preserving existing evidence first, then the storage model will be separated by project + work type + item identity before the clean master project is created.
+

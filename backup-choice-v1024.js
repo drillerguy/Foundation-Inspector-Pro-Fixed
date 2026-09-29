@@ -5,7 +5,7 @@
 */
 (()=>{
 'use strict';
-const VERSION='10.25.89-backup-choice';
+const VERSION='10.25.90-backup-choice';
 function say(s){try{toast(s)}catch{}}
 function esc(s){return String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 function projectName(){try{return activeProject()?.name||'FieldVerify Project'}catch{return'FieldVerify Project'}}
@@ -19,7 +19,7 @@ function modal(title,body){
 function isRecoveryMaster(){try{return !!activeProject()?.recoveryMaster}catch{return false}}
 async function hostedAction(isBackup){
  try{
-  if(!window.FIELDVERIFY_HOSTED_BACKUP&&typeof loadScript==='function')await loadScript('hosted-backup-v1024.js');
+  if(!window.FIELDVERIFY_HOSTED_BACKUP){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='./hosted-backup-v1024.js?v=10.25.90';s.onload=resolve;s.onerror=()=>reject(Error('Cloud backup module failed to load'));document.body.appendChild(s)})}
   const h=window.FIELDVERIFY_HOSTED_BACKUP;
   if(!h)throw Error('Hosted backup service did not load');
   return isBackup?h.backup():h.restore();
@@ -36,6 +36,7 @@ function choiceButtons(kind){
  d.querySelector('#fvChoiceDevice').onclick=()=>{d.remove();if(isBackup&&isRecoveryMaster()){const a=window.FIELDVERIFY_CLEAN_ARCHIVE;if(!a||typeof a.save!=='function')return say('Clean Recovery Master backup is still loading. Try again in a moment.');a.save();return}isBackup?deviceBackup():deviceRestore()};
 }
 async function deviceBackup(){
+ if(window.FIELDVERIFY_DEVICE_BACKUP)return window.FIELDVERIFY_DEVICE_BACKUP.prepare();
  try{
   if(typeof buildProjectBackup!=='function')throw Error('Device backup engine is not ready');
   say('Preparing complete device backup…');
@@ -102,3 +103,4 @@ const obs=new MutationObserver(()=>setTimeout(bind,0));obs.observe(document.docu
 window.FIELDVERIFY_BACKUP_CHOOSER={version:VERSION,backupDevice:deviceBackup,restoreDevice:deviceRestore,openBackup:()=>choiceButtons('backup'),openRestore:()=>choiceButtons('restore')};
 console.info(`FieldVerify backup chooser ${VERSION} loaded`);
 })();
+
