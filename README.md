@@ -75,3 +75,9 @@ The drawing, numbered hotspot locations, verified starting control points, and E
 - The viewer reads exact linked IDs and cannot pull an unrelated photo with the same item number.
 
 Validation: `node --test --test-isolation=none tests/reliability.test.cjs` (Node 24). The suite exercises simulated IndexedDB/cloud faults, 270-photo uploads, paginated/resumable downloads, project changes, exact-ID viewing, and multipart attachment round trips. Native iPhone share-sheet behavior requires device verification.
+
+## v10.25.91 Cloud download feedback
+
+Cloud → DOWNLOAD ALL PHOTOS TO DEVICE saves photos **inside FieldVerify** for offline use. Its progress, completion counts, and errors now appear below the button in the Cloud dialog. Existing local files are skipped; tap again to resume after a failure. Stalled photo, list, or device operations report a timeout after 20 seconds.
+
+To create a file you can save in the iPhone Files app, use **Backup Project → Backup to Device** and save each prepared part.

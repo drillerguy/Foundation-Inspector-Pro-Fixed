@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.90-reliable-transfers';
+const BUILD='10.25.91-visible-download';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 let sb=null,session=null,channel=null,syncReady=false,syncTimer=null,pullTimer=null,initialized=false,transfer=null,syncing=null,rerun=false,downloadBusy=null;
@@ -14,7 +14,7 @@ async function loadClient(){if(sb)return sb;const mod=await import('https://cdn.
 function injectUi(){if(document.getElementById('fvCloudBtn'))return;const gps=document.querySelector('.gpsline');if(gps){const b=document.createElement('button');b.id='fvCloudBtn';b.className='badge';b.style.cssText='color:#fff;background:#ffffff22;font-size:12px;font-weight:900';b.textContent='Cloud';b.onclick=showPanel;gps.appendChild(b)}const d=document.createElement('div');d.id='fvCloudModal';d.className='hidden';d.style.cssText='position:fixed;inset:0;z-index:500;background:#0009;padding:18px;overflow:auto';d.innerHTML='<div style="max-width:520px;margin:5vh auto;background:#fff;border-radius:18px;padding:18px;color:#16202a"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2 style="margin:0">FieldVerify Cloud</h2><button id="fvCloudClose" style="padding:9px 12px">Close</button></div><div id="fvCloudBody" style="margin-top:14px"></div></div>';document.body.appendChild(d);document.getElementById('fvCloudClose').onclick=()=>d.classList.add('hidden')}
 function button(label,id,bg='#083a73'){return `<button id="${id}" style="width:100%;padding:13px;margin:6px 0;background:${bg};color:#fff;border-radius:11px">${label}</button>`}
 async function showPanel(){document.getElementById('fvCloudModal')?.classList.remove('hidden');if(!initialized)await init();await refreshUi()}
-async function refreshUi(){injectUi();const body=document.getElementById('fvCloudBody');if(!body)return;await loadClient();if(!session){status('Cloud: Sign in');body.innerHTML='<p>Sign in to the shared FieldVerify project.</p><input id="fvEmail" class="field" type="email" placeholder="Email"><input id="fvPass" class="field" type="password" placeholder="Password" style="margin-top:8px">'+button('Sign in','fvSignIn')+button('Create account','fvSignUp','#16803d');document.getElementById('fvSignIn').onclick=authSignIn;document.getElementById('fvSignUp').onclick=authSignUp;return}status(cloudId()?'Cloud: Connected':'Cloud: Signed in');const q=await sb.from('fieldverify_projects').select('*').order('created_at');if(q.error){body.innerHTML=`<p>Cloud error: ${html(q.error.message)}</p>`;return}const rows=q.data||[],current=rows.find(p=>p.id===cloudId());let out=`<p><b>Signed in:</b> ${html(session.user.email||'user')}</p>`;if(current){out+=`<p><b>Shared project:</b> ${html(current.name)}</p>`+button('Sync now','fvSyncNow','#16803d')+button('DOWNLOAD ALL PHOTOS TO DEVICE','fvDownloadPhotos','#16803d')+button('Create / show join code','fvInvite')+button('Sign out','fvSignOut','#666')}else{if(rows.length){out+='<p><b>Your shared projects</b></p>';rows.forEach((p,i)=>out+=button(`Open ${html(p.name)}`,`fvOpen${i}`))}out+=button('Move CURRENT local project to cloud','fvCreateCloud','#16803d')+'<input id="fvJoinCode" class="field" placeholder="Project join code">'+button('Join project','fvJoin')}body.innerHTML=out;if(current){document.getElementById('fvSyncNow').onclick=()=>syncAll(true).catch(e=>announce(e.message));document.getElementById('fvDownloadPhotos').onclick=()=>downloadPhotos().catch(e=>announce(e.message));document.getElementById('fvInvite').onclick=createInvite;document.getElementById('fvSignOut').onclick=async()=>{await sb.auth.signOut();session=null;syncReady=false;refreshUi()}}else{rows.forEach((p,i)=>{const el=document.getElementById(`fvOpen${i}`);if(el)el.onclick=()=>activateRemoteProject(p)});document.getElementById('fvCreateCloud').onclick=createCloudFromCurrent;document.getElementById('fvJoin').onclick=joinProject}}
+async function refreshUi(){injectUi();const body=document.getElementById('fvCloudBody');if(!body)return;await loadClient();if(!session){status('Cloud: Sign in');body.innerHTML='<p>Sign in to the shared FieldVerify project.</p><input id="fvEmail" class="field" type="email" placeholder="Email"><input id="fvPass" class="field" type="password" placeholder="Password" style="margin-top:8px">'+button('Sign in','fvSignIn')+button('Create account','fvSignUp','#16803d');document.getElementById('fvSignIn').onclick=authSignIn;document.getElementById('fvSignUp').onclick=authSignUp;return}status(cloudId()?'Cloud: Connected':'Cloud: Signed in');const q=await sb.from('fieldverify_projects').select('*').order('created_at');if(q.error){body.innerHTML=`<p>Cloud error: ${html(q.error.message)}</p>`;return}const rows=q.data||[],current=rows.find(p=>p.id===cloudId());let out=`<p><b>Signed in:</b> ${html(session.user.email||'user')}</p>`;if(current){out+=`<p><b>Shared project:</b> ${html(current.name)}</p>`+button('Sync now','fvSyncNow','#16803d')+button('DOWNLOAD ALL PHOTOS TO DEVICE','fvDownloadPhotos','#16803d')+button('Create / show join code','fvInvite')+button('Sign out','fvSignOut','#666')}else{if(rows.length){out+='<p><b>Your shared projects</b></p>';rows.forEach((p,i)=>out+=button(`Open ${html(p.name)}`,`fvOpen${i}`))}out+=button('Move CURRENT local project to cloud','fvCreateCloud','#16803d')+'<input id="fvJoinCode" class="field" placeholder="Project join code">'+button('Join project','fvJoin')}body.innerHTML=out;if(current){document.getElementById('fvSyncNow').onclick=()=>syncAll(true).catch(e=>announce(e.message));document.getElementById('fvDownloadPhotos').onclick=()=>downloadPhotos().catch(console.error);paintDownload();document.getElementById('fvInvite').onclick=createInvite;document.getElementById('fvSignOut').onclick=async()=>{await sb.auth.signOut();session=null;syncReady=false;refreshUi()}}else{rows.forEach((p,i)=>{const el=document.getElementById(`fvOpen${i}`);if(el)el.onclick=()=>activateRemoteProject(p)});document.getElementById('fvCreateCloud').onclick=createCloudFromCurrent;document.getElementById('fvJoin').onclick=joinProject}}
 async function authSignIn(){const email=document.getElementById('fvEmail').value.trim(),password=document.getElementById('fvPass').value;if(!email||!password)return announce('Enter email and password');const r=await sb.auth.signInWithPassword({email,password});if(r.error)return announce(`Sign in failed: ${r.error.message}`);session=r.data.session;await refreshUi();await autoConnect()}
 async function authSignUp(){const email=document.getElementById('fvEmail').value.trim(),password=document.getElementById('fvPass').value;if(!email||password.length<6)return announce('Use a password of at least 6 characters');const r=await sb.auth.signUp({email,password});if(r.error)return announce(`Account failed: ${r.error.message}`);session=r.data.session||null;await refreshUi()}
 function rowFromRecord(pid,key,r){return{project_id:pid,item_key:String(key),item_type:r.itemType||'Caisson',item_label:r.itemLabel||'',status:r.status||'No information',verified:!!r.verified,notes:r.notes||'',lat:r.lat??null,lon:r.lon??null,condition:r.condition||'',pickup_time:r.pickupTime||null,unload_time:r.unloadTime||null,pickup_gps:r.pickupGPS||null,unload_gps:r.unloadGPS||null,inspection:r.inspection||{},history:r.history||[],updated_at:r.updated||new Date().toISOString()}}
@@ -50,21 +50,47 @@ async function pushPhotos(){
  }finally{await wake?.release().catch(()=>{})}})();
  try{return await transfer}finally{transfer=null}
 }
+let downloadState={busy:false,text:'Photos downloaded here are saved inside FieldVerify for offline use. To save a backup in Files, use Backup Project → Backup to Device.',bad:false};
+function paintDownload(){
+ const body=document.getElementById('fvCloudBody'),button=document.getElementById('fvDownloadPhotos');if(!body||!button)return;
+ let note=document.getElementById('fvDownloadNote');if(!note){note=document.createElement('div');note.id='fvDownloadNote';note.setAttribute('role','status');note.setAttribute('aria-live','polite');button.insertAdjacentElement('afterend',note)}
+ note.style.cssText=`padding:12px;margin:8px 0;border-radius:10px;white-space:pre-wrap;background:${downloadState.bad?'#fff0ef':'#eef8f1'};color:${downloadState.bad?'#a51d17':'#12642f'};font-size:14px`;
+ note.textContent=downloadState.text;button.disabled=downloadState.busy;button.textContent=downloadState.busy?'DOWNLOADING PHOTOS…':'DOWNLOAD ALL PHOTOS TO DEVICE';
+}
+function downloadProgress(text,bad=false){downloadState.text=text;downloadState.bad=bad;paintDownload();status(text)}
+function deadline(promise,label,ms=20000){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(label+' timed out. Check your connection and tap Download again.')),ms)})]).finally(()=>clearTimeout(timer))}
 async function downloadPhotos(ids=null){
- if(downloadBusy)return downloadBusy;
+ if(downloadBusy){paintDownload();return downloadBusy}
+ downloadState.busy=true;downloadProgress('Starting download: checking Cloud and this device…');
  downloadBusy=(async()=>{await init();const c=context();if(!c.pid||!session)throw Error('Sign in and connect this project first');
- if(!ids)localStorage.setItem('fieldVerifyDownloadPending:'+c.local,'1');const meta=await remoteRows('fieldverify_photos','*',c.pid),wanted=ids?new Set(ids.map(String)):null;let saved=0,cached=0;const failed=[];const wake=await keepAwake();
- try{for(const m of meta){if(wanted&&!wanted.has(String(m.id)))continue;if(!current(c))throw Error('Project changed; download paused');
- try{const p=await getLocalPhoto(m.id);if(p?.blob?.size){cached++;continue}status(`Cloud: downloading ${saved+cached+1} / ${wanted?wanted.size:meta.length}`);
- const dl=await sb.storage.from('fieldverify').download(m.storage_path);if(dl.error||!dl.data?.size)throw dl.error||Error('Cloud photo file is empty');
+ if(!ids){try{localStorage.setItem('fieldVerifyDownloadPending:'+c.local,'1')}catch{}}
+ downloadProgress('Loading the Cloud photo list…');
+ const meta=await deadline(remoteRows('fieldverify_photos','*',c.pid),'Cloud photo list'),wanted=ids?new Set(ids.map(String)):null;
+ let saved=0,cached=0,checked=0,consecutive=0;const failed=[],available=new Set(meta.map(m=>String(m.id)));
+ const refs=uniq(ids||Object.values(records||{}).flatMap(r=>r?.photos||[]));
+ const absent=refs.filter(id=>!available.has(id));const selected=meta.filter(m=>!wanted||wanted.has(String(m.id))),wake=await keepAwake();
+ try{for(const m of selected){if(!current(c))throw Error('Project changed; download paused');
+ checked++;downloadProgress(`Checking photo ${checked} of ${selected.length} · ${saved} downloaded · ${cached} already on device`);
+ try{const p=await deadline(getLocalPhoto(m.id),'Device photo read');if(p?.blob?.size){cached++;consecutive=0;continue}
+ downloadProgress(`Downloading photo ${checked} of ${selected.length} · ${saved} downloaded · ${cached} already on device`);
+ const dl=await deadline(sb.storage.from('fieldverify').download(m.storage_path),'Photo download');if(dl.error||!dl.data?.size)throw dl.error||Error('Cloud photo file is empty');
  if(!current(c))throw Error('Project changed; download paused');
- await putLocalPhoto({id:String(m.id),caisson:m.item_key,projectId:c.local,name:m.file_name||'',type:m.mime_type||dl.data.type,date:m.captured_at,blob:dl.data});saved++;
- }catch(e){failed.push({id:m.id,message:e.message||String(e)})}
+ await deadline(putLocalPhoto({id:String(m.id),caisson:m.item_key,projectId:c.local,name:m.file_name||'',type:m.mime_type||dl.data.type,date:m.captured_at,blob:dl.data}),'Saving photo on device');saved++;consecutive=0;
+ // Link the exact cloud file even if metadata syncing was interrupted earlier.
+ const key=String(m.item_key),r=records[key]||defaultRec();records[key]={...r,photos:uniq([...(r.photos||[]),String(m.id)])};
+ }catch(e){failed.push({id:m.id,message:e.message||String(e)});consecutive++;
+ if(/quota|storage.*full|timed out/i.test(String(e.name)+' '+e.message)||consecutive>=3){downloadProgress(`Download paused after ${saved} new files. ${e.message||e}`,true);break}}
  await new Promise(r=>setTimeout(r,0));}
- const result={saved,cached,failed,total:wanted?wanted.size:meta.length};
- if(!ids&&!failed.length)localStorage.removeItem('fieldVerifyDownloadPending:'+c.local);status(failed.length?`Cloud: ${failed.length} photos need retry`:`Cloud: ${saved+cached} photos on device`);return result;
+ if(!current(c))throw Error('Project changed; download paused');
+ try{localStorage.setItem(projectRecordsKey(),JSON.stringify(records))}catch(e){throw Error('Photo files are saved, but the record index could not be saved: '+e.message)}
+ const remaining=selected.length-saved-cached,result={saved,cached,failed,total:selected.length,remaining,missing:absent};
+ if(!ids&&!remaining){try{localStorage.removeItem('fieldVerifyDownloadPending:'+c.local)}catch{}}
+ const details=remaining?`\n${remaining} cloud files still need downloading. Tap Download again to resume.`:'';
+ const error=failed[0]?`\nFirst error: ${failed[0].message}`:'';
+ downloadProgress(`${saved+cached} of ${selected.length} cloud photos are on this device.\n${saved} newly downloaded; ${cached} already saved.${details}${error}${absent.length?'\n'+absent.length+' linked photo IDs are absent from this Cloud project.':''}`,remaining>0||absent.length>0);
+ try{showTarget()}catch{}return result;
  }finally{await wake?.release().catch(()=>{})}})();
- try{return await downloadBusy}finally{downloadBusy=null}
+ try{return await downloadBusy}catch(e){downloadProgress('Download could not finish: '+(e.message||e),true);throw e}finally{downloadBusy=null;downloadState.busy=false;paintDownload()}
 }
 async function syncAll(showToast=false,opt={}){
  if(syncing){rerun=true;return syncing}if(!session||!cloudId()||!navigator.onLine)return;

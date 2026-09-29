@@ -1,4 +1,19 @@
-# v10.25.90 — 2026-09-29\n\n- Atomically commit photo files and recoverable links.\n- Drain cloud upload queues and resume sequential downloads with actual photo blobs.\n- Prepare device backup parts individually and restore them sequentially.\n- Preserve current shared records during cloud restore; display exact linked photos only.\n- Nine regression tests cover persistence faults, 270-photo uploads, paginated downloads, project switches, and backup round trips.\n\n# FieldVerify Pro Changelog
+# v10.25.91 — 2026-09-29
+
+- Show photo download progress, cached/downloaded counts, remaining files, and the first failure inside the Cloud dialog.
+- Bound stalled photo/list/device operations to 20 seconds and re-enable the download button for a resumable retry.
+- Explain that Cloud downloads save photos inside FieldVerify; Backup to Device creates files for Files.
+- Eleven regression tests pass, including visible cached-file completion and storage-failure retry.
+
+# v10.25.90 — 2026-09-29
+
+- Atomically commit photo files and recoverable links.
+- Drain cloud upload queues and resume sequential downloads with actual photo blobs.
+- Prepare device backup parts individually and restore them sequentially.
+- Preserve current shared records during cloud restore; display exact linked photos only.
+- Nine regression tests cover persistence faults, 270-photo uploads, paginated downloads, project switches, and backup round trips.
+
+# FieldVerify Pro Changelog
 
 This changelog records production changes, patches, recovery tools, and major development work. Entries from v10.25.50 through v10.25.72 were reconstructed from GitHub commit history on 2026-09-17. Older history can be backfilled from earlier commits as needed.
 
