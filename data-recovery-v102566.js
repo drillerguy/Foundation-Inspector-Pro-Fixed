@@ -2,7 +2,7 @@
    Never overwrites record status/GPS/notes or an existing photo blob. */
 (()=>{
 'use strict';
-const BUILD='10.25.66-recovery-1';
+const BUILD='10.25.90-recovery-scan';
 const unique=v=>[...new Set((v||[]).filter(Boolean).map(String))];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const photoItem=p=>p?.caisson??p?.number??p?.itemNumber??p?.item??p?.item_key??null;
@@ -28,9 +28,15 @@ async function scanDevice(){
  say('Recovery scan: reading this device…');
  const refs=recordRefs(typeof records==='object'?records:{}),rows=[],byHash=new Map(),ids=new Set();
  if(typeof openDB!=='function')throw Error('Photo database is not available');
- const db=await openDB(),tx=db.transaction('photos','readonly'),store=tx.objectStore('photos');
- await new Promise((resolve,reject)=>{const q=store.openCursor();q.onerror=()=>reject(q.error);q.onsuccess=async()=>{const c=q.result;if(!c){resolve();return}const p=c.value||{},id=String(p.id||c.key||'');ids.add(id);let hash='';try{hash=await blobHash(p.blob)}catch{}const item=String(photoItem(p)??refs.get(id)??'');const row={id,item,projectId:String(p.projectId??''),bytes:Number(p.blob?.size||0),hash};rows.push(row);if(hash){if(!byHash.has(hash))byHash.set(hash,[]);byHash.get(hash).push(row)}if(rows.length%5===0){say(`Recovery scan: ${rows.length} stored photos checked`);await sleep(10)}c.continue()}})});
- await txDone(tx).catch(()=>{});
+ const db=await openDB();try{
+ const tx=db.transaction('photos','readonly'),done=txDone(tx),keys=await req(tx.objectStore('photos').getAllKeys());await done;
+ for(const key of keys){const readTx=db.transaction('photos','readonly'),readDone=txDone(readTx),p=await req(readTx.objectStore('photos').get(key));await readDone;if(!p)continue;
+ const id=String(p.id||key);ids.add(id);let hash='';try{hash=await blobHash(p.blob)}catch{}
+ const item=String(photoItem(p)??refs.get(id)??''),row={id,item,projectId:String(p.projectId??''),bytes:Number(p.blob?.size||0),hash};rows.push(row);
+ if(hash){if(!byHash.has(hash))byHash.set(hash,[]);byHash.get(hash).push(row)}
+ if(rows.length%5===0){say(`Recovery scan: ${rows.length} stored photos checked`);await sleep(10)}
+ }
+ }finally{db.close()}
  const missing=[...refs.entries()].filter(([id])=>!ids.has(id)).map(([id,item])=>({id,item}));
  const orphan=rows.filter(r=>!refs.has(r.id));
  const duplicateGroups=[...byHash.entries()].map(([hash,a])=>({hash,photos:a,items:unique(a.map(x=>x.item))})).filter(g=>g.photos.length>1&&g.items.length>1);
@@ -94,3 +100,4 @@ const obs=new MutationObserver(()=>{bind();guardLegacyRecovery()});obs.observe(d
 window.FIELDVERIFY_DATA_RECOVERY={version:BUILD,scanDevice,analyzeFiles,safeImportRecoveryFiles,open:modal,getLastReport:()=>lastReport};
 console.info('FieldVerify safe data recovery '+BUILD+' loaded');
 })();
+
