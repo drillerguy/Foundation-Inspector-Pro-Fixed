@@ -59,9 +59,4 @@
     return clean(value(row,ID_HEADERS))||`NCR-${index+1}`;
   };
 
-  const title=document.querySelector('.top .title');
-  if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD_VERSION} stable</span>`;
-  document.title=`FieldVerify Pro v${BUILD_VERSION}`;
-  document.documentElement.setAttribute('data-fieldverify-version',BUILD_VERSION);
-  localStorage.setItem('fieldVerifyInstalledBuild',BUILD_VERSION);
 })();

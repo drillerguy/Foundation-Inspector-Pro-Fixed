@@ -73,10 +73,6 @@
       const buttons=list.map(({id},i)=>`<button type="button" onclick="openFullNcrExcel('${String(n).replace(/'/g,"\\'")}',${i})" style="width:100%;margin:7px 0;padding:13px;border:0;border-radius:11px;background:#083a73;color:#fff;font-size:15px;font-weight:900">OPEN FULL NCR EXCEL DETAILS${id?` — ${esc(id)}`:''}</button>`).join('');
       return base+`<div class="card" style="border:2px solid #083a73"><h2 style="font-size:17px">Full NCR Excel Record</h2><div class="tiny" style="margin-bottom:7px">Opens a separate window. Every Excel header is displayed on its own line.</div>${buttons}</div>`;
     };
-    const title=document.querySelector('.top .title');
-    if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD_VERSION} stable</span>`;
-    document.title=`FieldVerify Pro v${BUILD_VERSION}`;
-    localStorage.setItem('fieldVerifyInstalledBuild',BUILD_VERSION);
     if(typeof showTarget==='function')showTarget();
   }
 

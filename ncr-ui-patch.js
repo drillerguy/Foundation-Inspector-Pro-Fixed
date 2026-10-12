@@ -6,11 +6,6 @@
   let visible=localStorage.getItem(KEY)!=='false';
 
   function updateVersionHeader(){
-    const title=document.querySelector('.top .title');
-    if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD_VERSION} stable</span>`;
-    document.title=`FieldVerify Pro v${BUILD_VERSION}`;
-    document.documentElement.setAttribute('data-fieldverify-version',BUILD_VERSION);
-    localStorage.setItem(BUILD_KEY,BUILD_VERSION);
   }
 
   function addStyles(){

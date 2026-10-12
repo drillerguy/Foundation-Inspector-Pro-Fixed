@@ -1,9 +1,9 @@
 (()=>{
 'use strict';
-const BUILD='10.25.92';
+const BUILD='10.25.93';
 function apply(){const title=document.querySelector('.top .title');if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD} stable</span>`;document.title=`FieldVerify Pro v${BUILD}`;document.documentElement.setAttribute('data-fieldverify-version',BUILD);try{localStorage.setItem('fieldVerifyInstalledBuild',BUILD)}catch{}}
 function hasFile(file){return [...document.scripts].some(s=>String(s.src||'').includes('/'+file)||String(s.src||'').includes(file))}
-function loadScript(file){if(hasFile(file))return Promise.resolve();return new Promise(resolve=>{const s=document.createElement('script');s.src=`./${file}?v=${BUILD}`;s.async=false;s.dataset.fieldverifyHotfix=file;s.onload=resolve;s.onerror=()=>{console.warn('FieldVerify optional module failed: '+file);resolve()};document.body.appendChild(s)})}
+function loadScript(file){if(hasFile(file))return Promise.resolve();return new Promise(resolve=>{const s=document.createElement('script');let settled=false;const done=()=>{if(settled)return;settled=true;clearTimeout(timer);apply();resolve()};const timer=setTimeout(()=>{console.warn('FieldVerify optional module timed out: '+file);done()},8000);s.src=`./${file}?v=${BUILD}`;s.async=true;s.dataset.fieldverifyHotfix=file;s.onload=done;s.onerror=()=>{console.warn('FieldVerify optional module failed: '+file);done()};document.body.appendChild(s)})}
 function ensureRecoveryButton(){
  const backup=document.getElementById('backupBtn'),restore=document.getElementById('restoreBtn');
  if((backup||restore)&&!document.getElementById('fvRecoveryDirectBtn')){

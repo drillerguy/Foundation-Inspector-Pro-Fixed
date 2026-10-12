@@ -44,10 +44,6 @@
       const at=base.lastIndexOf(marker);
       return at>=0?base.slice(0,at)+cards+base.slice(at):base+cards;
     };
-    const title=document.querySelector('.top .title');
-    if(title)title.innerHTML=`FieldVerify Pro <span style="font-size:11px;opacity:.75">v${BUILD_VERSION} stable</span>`;
-    document.title=`FieldVerify Pro v${BUILD_VERSION}`;
-    localStorage.setItem('fieldVerifyInstalledBuild',BUILD_VERSION);
     if(typeof showTarget==='function')showTarget();
   }
 
