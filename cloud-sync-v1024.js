@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.92-recovery-upload';
+const BUILD='10.25.94-byte-upload';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 let sb=null,session=null,channel=null,syncReady=false,syncTimer=null,pullTimer=null,initialized=false,transfer=null,syncing=null,rerun=false,downloadBusy=null;
@@ -55,8 +55,9 @@ async function pushPhotos(){
  // Deterministic IDs allow a retry after an interrupted upload without changing other projects.
  const target=await scopedPhotoId(c.pid,id),item=links.get(id),path=`${c.pid}/${encodeURIComponent(item)}/${target}.${extFor(p)}`;
  if(!have.has(target)){
+ stage='reading photo bytes';const bytes=new Uint8Array(await p.blob.arrayBuffer());if(!bytes.byteLength||bytes.byteLength!==p.blob.size)throw Error('Saved photo bytes are unreadable or incomplete on this device; original retained');
  stage='file upload';status(`Cloud: uploading ${uploaded+1} / ${refs.length}`);
- const up=await sb.storage.from('fieldverify').upload(path,p.blob,{upsert:false,contentType:p.type||p.blob.type||'image/jpeg'});
+ const up=await sb.storage.from('fieldverify').upload(path,bytes,{upsert:false,contentType:p.type||p.blob.type||'image/jpeg'});
  if(up.error){if(!/already exists|duplicate/i.test(up.error.message||''))throw up.error;stage='existing file verification';const check=await sb.storage.from('fieldverify').download(path);if(check.error||!check.data?.size)throw check.error||Error('Cloud file is empty');
  const [localHash,cloudHash]=await Promise.all([crypto.subtle.digest('SHA-256',await p.blob.arrayBuffer()),crypto.subtle.digest('SHA-256',await check.data.arrayBuffer())]);
  if(String(new Uint8Array(localHash))!==String(new Uint8Array(cloudHash)))throw Error('Existing Cloud file differs from this photo; original kept on device');}
