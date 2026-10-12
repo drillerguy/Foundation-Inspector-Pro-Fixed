@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const BUILD='10.25.91-visible-download';
+const BUILD='10.25.92-recovery-upload';
 const SUPABASE_URL='https://xkjmuvrzlsgftvgvazld.supabase.co';
 const SUPABASE_KEY='sb_publishable_MxI2bspqc0SmCBrqj8HVqg_IxgpKRvO';
 let sb=null,session=null,channel=null,syncReady=false,syncTimer=null,pullTimer=null,initialized=false,transfer=null,syncing=null,rerun=false,downloadBusy=null;
@@ -31,20 +31,47 @@ function current(c){return c.pid===cloudId()&&c.local===activeProjectId&&!!sessi
 async function remoteRows(table,fields,pid,order='id'){const rows=[];for(let offset=0;;offset+=200){const q=await sb.from(table).select(fields).eq('project_id',pid).order(order).range(offset,offset+199);if(q.error)throw q.error;rows.push(...(q.data||[]));if((q.data||[]).length<200)return rows}}
 async function keepAwake(){try{return await navigator.wakeLock?.request('screen')}catch{return null}}
 function extFor(p){const t=String(p?.type||p?.blob?.type||'').toLowerCase();if(t.includes('png'))return'png';if(t.includes('webp'))return'webp';return'jpg'}
+// A cloud photo ID belongs to one project. Recovery copies must never move the source row.
+async function scopedPhotoId(pid,id){
+ const bytes=new TextEncoder().encode('fieldverify-photo:'+pid+':'+id);
+ const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
+ hash[6]=(hash[6]&15)|80;hash[8]=(hash[8]&63)|128;
+ const h=[...hash.slice(0,16)].map(x=>x.toString(16).padStart(2,'0')).join('');
+ return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+function uploadError(result){
+ const first=result.failed?.[0];
+ return `${result.failed?.length||0} uploads failed; ${result.missing||0} photos unavailable on this device${first?'\nFirst error — photo '+first.id+' ('+first.stage+'): '+first.message:''}`;
+}
 async function pushPhotos(){
  if(transfer)return transfer;
  transfer=(async()=>{const c=context();if(!c.pid||!session)throw Error('Sign in and connect this project to Cloud first');
- const refs=uniq(Object.values(records||{}).flatMap(r=>r?.photos||[])),remote=await remoteRows('fieldverify_photos','id',c.pid),have=new Set(remote.map(x=>String(x.id)));
+ const links=new Map();for(const [key,r] of Object.entries(records||{}))for(const id of r?.photos||[])if(!links.has(String(id)))links.set(String(id),String(key));
+ const refs=[...links.keys()],remote=await remoteRows('fieldverify_photos','id',c.pid),have=new Set(remote.map(x=>String(x.id)));
  let uploaded=0,missing=0;const failed=[];const wake=await keepAwake();
  try{for(const id of refs){if(!current(c))throw Error('Project changed; transfer paused');if(have.has(id))continue;
- const p=await getLocalPhoto(id);if(!p?.blob?.size){missing++;continue}
- try{const item=String(p.caisson??p.number??'unknown'),path=`${c.pid}/${encodeURIComponent(item)}/${encodeURIComponent(id)}.${extFor(p)}`;
- status(`Cloud: uploading ${uploaded+1} / ${refs.length-have.size}`);
+ let stage='device read';
+ try{const p=await getLocalPhoto(id);if(!p?.blob?.size){missing++;continue}
+ // Deterministic IDs allow a retry after an interrupted upload without changing other projects.
+ const target=await scopedPhotoId(c.pid,id),item=links.get(id),path=`${c.pid}/${encodeURIComponent(item)}/${target}.${extFor(p)}`;
+ if(!have.has(target)){
+ stage='file upload';status(`Cloud: uploading ${uploaded+1} / ${refs.length}`);
  const up=await sb.storage.from('fieldverify').upload(path,p.blob,{upsert:false,contentType:p.type||p.blob.type||'image/jpeg'});
- if(up.error){if(!/already exists|duplicate/i.test(up.error.message||''))throw up.error;const check=await sb.storage.from('fieldverify').download(path);if(check.error||!check.data?.size)throw check.error||Error('Cloud file is empty')}
+ if(up.error){if(!/already exists|duplicate/i.test(up.error.message||''))throw up.error;stage='existing file verification';const check=await sb.storage.from('fieldverify').download(path);if(check.error||!check.data?.size)throw check.error||Error('Cloud file is empty');
+ const [localHash,cloudHash]=await Promise.all([crypto.subtle.digest('SHA-256',await p.blob.arrayBuffer()),crypto.subtle.digest('SHA-256',await check.data.arrayBuffer())]);
+ if(String(new Uint8Array(localHash))!==String(new Uint8Array(cloudHash)))throw Error('Existing Cloud file differs from this photo; original kept on device');}
  if(!current(c))throw Error('Project changed; transfer paused');
- const meta=await sb.from('fieldverify_photos').upsert({id,project_id:c.pid,item_key:item,storage_path:path,file_name:p.name||'',mime_type:p.type||p.blob.type||'',captured_at:p.date||null},{onConflict:'id'});if(meta.error)throw meta.error;uploaded++;
- }catch(e){failed.push({id,message:e.message||String(e)})}
+ stage='photo metadata';const time=Date.parse(p.date||'');
+ const meta=await sb.from('fieldverify_photos').upsert({id:target,project_id:c.pid,item_key:item,storage_path:path,file_name:p.name||'',mime_type:p.type||p.blob.type||'',captured_at:Number.isFinite(time)?new Date(time).toISOString():null},{onConflict:'id'});if(meta.error)throw meta.error;
+ have.add(target);
+ }
+ if(!current(c))throw Error('Project changed; transfer paused');
+ stage='saving recovery link';await putLocalPhoto({...p,id:target,projectId:c.local,sourcePhotoId:p.sourcePhotoId||id});
+ if(!current(c))throw Error('Project changed; transfer paused');
+ const updated={...records};for(const [key,r] of Object.entries(records||{}))if(r?.photos?.some(x=>String(x)===id))updated[key]={...r,photos:uniq(r.photos.map(x=>String(x)===id?target:x))};
+ // Commit the durable index before changing the live references. Keep the original photo bytes too.
+ localStorage.setItem(projectRecordsKey(),JSON.stringify(updated));records=updated;uploaded++;
+ }catch(e){failed.push({id,stage,code:e.code||e.statusCode||'',message:e.message||String(e)})}
  await new Promise(r=>setTimeout(r,0));}
  return{uploaded,missing,failed,total:refs.length};
  }finally{await wake?.release().catch(()=>{})}})();
@@ -129,6 +156,6 @@ async function startup(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startup,{once:true});else startup();
 addEventListener('online',()=>{autoConnect().then(queueSync).catch(console.error)});document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoConnect().then(queueSync).catch(console.error)});
-window.FIELDVERIFY_CLOUD_SYNC={build:BUILD,downloadPhotos,uploadPhotos:pushPhotos,client:loadClient,sync:async()=>{await init();return syncAll(true)},pullMetadata:async()=>{await init();return pullMetadata(true)},init};
+window.FIELDVERIFY_CLOUD_SYNC={build:BUILD,downloadPhotos,uploadPhotos:pushPhotos,uploadError,client:loadClient,sync:async()=>{await init();return syncAll(true)},pullMetadata:async()=>{await init();return pullMetadata(true)},init};
 })();
 

@@ -21,8 +21,8 @@ async function verifiedSync(btn){
   if(!navigator.onLine){note('This device is offline. Cloud sync will resume when you have a connection.',true);say('Cloud: Offline');return}
   const before=localSnapshot();
   note(`Syncing ${before.rows.length} local record${before.rows.length===1?'':'s'} and checking ${before.photos.length} photo link${before.photos.length===1?'':'s'}…`);
-  const result=await window.FIELDVERIFY_CLOUD_SYNC.sync();if(result?.failed?.length||result?.missing)throw Error(`${result.failed.length} uploads failed; ${result.missing} photos unavailable on this device`);
-  const remote=await remoteSnapshot(c,pid),diff=compare(before,remote);
+  const result=await window.FIELDVERIFY_CLOUD_SYNC.sync();if(result?.failed?.length||result?.missing)throw Error(window.FIELDVERIFY_CLOUD_SYNC.uploadError(result));
+  const remote=await remoteSnapshot(c,pid),diff=compare(localSnapshot(),remote);
   if(!diff.missingRows.length&&!diff.missingPhotos.length){
     const msg=`Cloud is up to date — ${remote.rows.length} record${remote.rows.length===1?'':'s'} and ${remote.photos.length} photo${remote.photos.length===1?'':'s'} are loaded.`;
     note(msg);say('Cloud: Up to date');
