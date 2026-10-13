@@ -30,10 +30,10 @@ function choiceButtons(kind){
  const d=modal(isBackup?'Backup Project':'Restore Project',`
   <p style="margin:0 0 12px;color:#596775">Choose where you want to ${isBackup?'save the backup':'restore the project from'}.</p>
   <button id="fvChoiceHosting" style="display:block;width:100%;padding:16px;margin:8px 0;background:#083a73;color:#fff;border-radius:12px;font-size:17px;font-weight:900">${isBackup?'BACKUP TO CLOUD':'RESTORE FROM CLOUD'}</button>
-  <button id="fvChoiceDevice" style="display:block;width:100%;padding:16px;margin:8px 0;background:#e7edf4;color:#16202a;border-radius:12px;font-size:17px;font-weight:900">${isBackup?(isRecoveryMaster()?'SAVE CLEAN MASTER TO DEVICE':'BACKUP TO DEVICE'):'RESTORE FROM DEVICE'}</button>
+  <button id="fvChoiceDevice" style="display:block;width:100%;padding:16px;margin:8px 0;background:#e7edf4;color:#16202a;border-radius:12px;font-size:17px;font-weight:900">${isBackup?'BACKUP TO DEVICE':'RESTORE FROM DEVICE'}</button>
   <div style="font-size:12px;color:#687480;margin-top:10px">${isBackup?'On iPhone/iPad, Backup to Device opens the normal share/save sheet so you can choose Save to Files, choose a folder, and change the filename before saving.':'Restore from Device opens the file picker so you can choose a FieldVerify backup saved on this phone, iCloud Drive, Files, or another available location.'}</div>`);
  d.querySelector('#fvChoiceHosting').onclick=()=>{d.remove();hostedAction(isBackup)};
- d.querySelector('#fvChoiceDevice').onclick=()=>{d.remove();if(isBackup&&isRecoveryMaster()){const a=window.FIELDVERIFY_CLEAN_ARCHIVE;if(!a||typeof a.save!=='function')return say('Clean Recovery Master backup is still loading. Try again in a moment.');a.save();return}isBackup?deviceBackup():deviceRestore()};
+ d.querySelector('#fvChoiceDevice').onclick=()=>{d.remove();isBackup?deviceBackup():deviceRestore()};
 }
 async function deviceBackup(){
  if(window.FIELDVERIFY_DEVICE_BACKUP)return window.FIELDVERIFY_DEVICE_BACKUP.prepare();
